@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Haus - grobes Arbeitsmodell",
-    "revision": 4,
+    "revision": 5,
     "date": "2026-11-20",
     "units": "meters",
     "up_axis": "Y",
@@ -27,6 +27,19 @@
       "type": "gable", "ridge_axis": "z", "height": 2.40, "overhang": 0.40,
       "_conf": "estimate"
     },
+
+    "lift_shaft": {
+      "x": 0.30, "z": 0.30, "w": 1.60, "d": 2.00, "color": [0.40, 0.80, 0.86],
+      "_conf": "estimate",
+      "_note": "Alter Liftschacht. Auf jeder offenen Etage als WC/Bad ausgebaut (gleiche Position uebereinander). Lage/Groesse geschaetzt - bitte Position + Masse bestaetigen. Lokale Koordinaten der default-Etage."
+    },
+    "columns": [
+      { "x": 2.45, "z": 1.60, "w": 0.30, "d": 0.30 },
+      { "x": 2.45, "z": 3.70, "w": 0.30, "d": 0.30 },
+      { "x": 2.45, "z": 5.80, "w": 0.30, "d": 0.30 }
+    ],
+    "_conf_columns": "estimate",
+    "_note_open": "Offene Geschosse (open_plan) haben KEINE Innenwaende - nur Deckenstuetzen (columns) und das WC/Bad im Liftschacht sind getrennt.",
 
     "levels": [
       {
@@ -69,6 +82,7 @@
         "name": "EG", "role": "Club/Bar", "floor_to_floor": 2.80, "_conf": "estimate",
         "_note": "Club/Bar ueber dem Keller (CAD-Plan vorhanden, Foto noch zu niedrig aufgeloest fuer exakte Masse). Innenaufteilung + Masse folgen.",
         "plan": {
+          "open_plan": true,
           "_coords": "lokal 0..6.80 / 0..7.60 (Fussabdruck noch default-Schaetzung)",
           "rooms": [
             { "id": "clubbar", "label": "Club / Bar", "color": [0.62, 0.42, 0.80], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 }
@@ -84,40 +98,48 @@
       },
 
       {
-        "name": "OG1", "floor_to_floor": 2.80, "_conf": "estimate",
-        "_note": "Wohngeschoss aus dem ersten Grundriss. Fussabdruck noch = default (geschaetzt).",
+        "name": "OG1", "role": "Office (Raedli)", "floor_to_floor": 2.80, "_conf": "estimate",
+        "_note": "Offener Office-Grundriss (Raedli). Keine Innenwaende - nur Deckenstuetzen + WC/Bad im Liftschacht. Fotos + Masse folgen.",
         "plan": {
-          "_coords": "lokal, 0..6.80 / 0..7.60",
-          "partitions": [
-            { "id": "spine",        "axis": "z", "at": 2.60, "from": 0.30, "to": 7.30,
-              "openings": [ { "from": 3.40, "to": 4.40, "y0": 0.0, "y1": 2.10, "kind": "door" } ] },
-            { "id": "stair_01",     "axis": "x", "at": 4.60, "from": 0.30, "to": 2.60,
-              "openings": [ { "from": 1.40, "to": 2.00, "y0": 0.0, "y1": 2.10, "kind": "door" } ] },
-            { "id": "01_bath",      "axis": "x", "at": 2.60, "from": 0.30, "to": 2.60,
-              "openings": [ { "from": 1.80, "to": 2.40, "y0": 0.0, "y1": 2.10, "kind": "door" } ] },
-            { "id": "bath_kitchen", "axis": "z", "at": 1.60, "from": 0.30, "to": 2.60,
-              "openings": [ { "from": 2.00, "to": 2.50, "y0": 0.0, "y1": 2.10, "kind": "door" } ] }
-          ],
+          "open_plan": true,
+          "_coords": "lokal 0..6.80 / 0..7.60",
           "rooms": [
-            { "id": "wohnen", "label": "WOHNEN / 03",    "color": [0.36, 0.56, 0.86], "x": 2.60, "z": 0.30, "w": 3.90, "d": 7.00 },
-            { "id": "00",     "label": "Treppenhaus 00", "color": [0.95, 0.76, 0.30], "x": 0.30, "z": 4.60, "w": 2.30, "d": 2.70 },
-            { "id": "01",     "label": "Raum 01",        "color": [0.45, 0.78, 0.55], "x": 0.30, "z": 2.60, "w": 2.30, "d": 2.00 },
-            { "id": "02",     "label": "Bad 02",         "color": [0.40, 0.80, 0.86], "x": 0.30, "z": 0.30, "w": 1.30, "d": 2.30 },
-            { "id": "kueche", "label": "Kueche",         "color": [0.90, 0.55, 0.45], "x": 1.60, "z": 0.30, "w": 1.00, "d": 2.30 }
+            { "id": "office", "label": "Office / Raedli", "color": [0.36, 0.56, 0.86], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 }
           ],
-          "features": [],
           "ext_openings": [
-            { "id": "eingang",       "side": "S", "from": 1.50, "to": 2.50, "y0": 0.00, "y1": 2.10, "kind": "door" },
-            { "id": "wohnfenster",   "side": "E", "from": 2.00, "to": 5.60, "y0": 0.90, "y1": 2.30, "kind": "window" },
-            { "id": "treppenfenster","side": "N", "from": 0.80, "to": 1.80, "y0": 0.90, "y1": 2.10, "kind": "window" },
-            { "id": "badfenster",    "side": "W", "from": 0.80, "to": 1.60, "y0": 1.20, "y1": 2.00, "kind": "window" }
+            { "id": "og1_fenster_e", "side": "E", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" },
+            { "id": "og1_fenster_w", "side": "W", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" }
           ],
-          "stair": { "id": "treppe_og1", "label": "Treppe", "x": 0.40, "z": 4.70, "w": 1.10, "d": 2.50, "dir": "-z", "_conf": "estimate" }
+          "stair": { "id": "treppe_og1", "label": "Treppe", "x": 0.45, "z": 3.50, "w": 1.30, "d": 2.40, "dir": "-z", "_conf": "estimate" }
         }
       },
 
-      { "name": "OG2", "floor_to_floor": 2.80, "_conf": "estimate" },
-      { "name": "OG3", "floor_to_floor": 2.80, "_conf": "estimate" }
+      {
+        "name": "OG2", "role": "(offen)", "floor_to_floor": 2.80, "_conf": "estimate",
+        "_note": "Programm noch offen. Offener Grundriss + WC im Liftschacht als Standard.",
+        "plan": {
+          "open_plan": true,
+          "rooms": [ { "id": "og2", "label": "OG2 (offen)", "color": [0.70, 0.72, 0.78], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 } ],
+          "ext_openings": [
+            { "id": "og2_fenster_e", "side": "E", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" },
+            { "id": "og2_fenster_w", "side": "W", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" }
+          ],
+          "stair": { "id": "treppe_og2", "label": "Treppe", "x": 0.45, "z": 3.50, "w": 1.30, "d": 2.40, "dir": "-z", "_conf": "estimate" }
+        }
+      },
+
+      {
+        "name": "OG3", "role": "(offen)", "floor_to_floor": 2.80, "_conf": "estimate",
+        "_note": "Programm noch offen. Oberstes Geschoss (keine Treppe nach oben).",
+        "plan": {
+          "open_plan": true,
+          "rooms": [ { "id": "og3", "label": "OG3 (offen)", "color": [0.70, 0.72, 0.78], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 } ],
+          "ext_openings": [
+            { "id": "og3_fenster_e", "side": "E", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" },
+            { "id": "og3_fenster_w", "side": "W", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" }
+          ]
+        }
+      }
     ]
   },
 

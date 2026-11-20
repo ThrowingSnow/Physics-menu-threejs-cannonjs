@@ -124,6 +124,20 @@ def stair_steps(mb, x0, x1, z0, z1, base_y, floor_to_floor, direction="+z", step
         mb.box("Stairs","stair",mat,(x0+x1)/2, base_y+h/2, zc, (x1-x0), h, tread)
 
 
+def wc_in_shaft(mb, ox, oz, shaft, yb, clear, ti):
+    """Abgetrenntes WC/Bad im alten Liftschacht: 4 Waende (Tuer Sueden) + Pad.
+    shaft in lokalen Geschoss-Koordinaten."""
+    x0, z0, w, d = shaft["x"], shaft["z"], shaft["w"], shaft["d"]
+    door_w = min(0.80, w*0.6); df = x0 + (w-door_w)/2
+    wall(mb,"Interior","part",MATS["part"],"x", oz+z0,   ox+x0, ox+x0+w, yb, clear, ti,
+         [{"from": ox+df, "to": ox+df+door_w, "y0": 0.0, "y1": 2.10}])
+    wall(mb,"Interior","part",MATS["part"],"x", oz+z0+d, ox+x0, ox+x0+w, yb, clear, ti)
+    wall(mb,"Interior","part",MATS["part"],"z", ox+x0,   oz+z0, oz+z0+d, yb, clear, ti)
+    wall(mb,"Interior","part",MATS["part"],"z", ox+x0+w, oz+z0, oz+z0+d, yb, clear, ti)
+    mb.box("RoomPads","room:wc", room_material(shaft.get("color",[0.40,0.80,0.86])),
+           ox+x0+w/2, yb+0.02, oz+z0+d/2, w, 0.04, d)
+
+
 # ===========================================================================
 # Modell aus house.json
 # ===========================================================================
@@ -137,6 +151,7 @@ def build(spec):
     te = b["wall_exterior_thickness"]; ti = b["wall_interior_thickness"]; st = b["slab_thickness"]
     df = b["default_footprint"]; Cx, Cz = df["width_x"]/2, df["depth_z"]/2
     levels = b["levels"]; n = len(levels)
+    lift = b.get("lift_shaft"); cols = b.get("columns", [])
 
     base = [0.0]
     for lv in levels: base.append(base[-1] + lv["floor_to_floor"])
@@ -192,6 +207,14 @@ def build(spec):
                 fh = f.get("h", 0.85)
                 mb.box("Features","appli",MATS["appli"],
                        ox+f["x"]+f["w"]/2, yb+fh/2, oz+f["z"]+f["d"]/2, f["w"], fh, f["d"])
+        # Offener Grundriss: WC/Bad im alten Liftschacht + Deckenstuetzen (Pfeiler)
+        if plan.get("open_plan"):
+            if lift:
+                wc_in_shaft(mb, ox, oz, lift, yb, clear, ti)
+            for c in cols:
+                cw, cd = c.get("w", 0.30), c.get("d", 0.30)
+                mb.box("Features","column",MATS["column"],
+                       ox+c["x"]+cw/2, yb+clear/2, oz+c["z"]+cd/2, cw, clear, cd)
         # Treppe dieses Geschosses
         s = plan.get("stair")
         if s:
@@ -338,6 +361,18 @@ def plan_png(spec, level_name, out_png):
         col = "#555" if f.get("type") == "column" else "#9aa0ab"
         ax.add_patch(Rectangle((f["x"], f["z"]), f["w"], f["d"], facecolor=col, edgecolor="#222", lw=0.6))
         ax.text(f["x"]+f["w"]/2, f["z"]+f["d"]+0.08, f["label"], ha="center", va="bottom", fontsize=6, color="#444")
+    # Offener Grundriss: Liftschacht (WC/Bad) + Deckenstuetzen
+    if plan.get("open_plan"):
+        sh = b.get("lift_shaft")
+        if sh:
+            sc = sh.get("color", [0.40, 0.80, 0.86])
+            ax.add_patch(Rectangle((sh["x"], sh["z"]), sh["w"], sh["d"],
+                         facecolor=(sc[0], sc[1], sc[2], 0.55), edgecolor="#333", lw=1.2))
+            ax.text(sh["x"]+sh["w"]/2, sh["z"]+sh["d"]/2, "WC/Bad\n(Liftschacht)",
+                    ha="center", va="center", fontsize=6, color="#133")
+        for c in b.get("columns", []):
+            cw, cd = c.get("w", 0.30), c.get("d", 0.30)
+            ax.add_patch(Rectangle((c["x"], c["z"]), cw, cd, facecolor="#555", edgecolor="#222", lw=0.6))
     # Treppe
     s = plan.get("stair")
     if s:

@@ -257,6 +257,9 @@ def build(spec):
             if f.get("type") == "column":
                 mb.box("Features","column",MATS["column"],
                        ox+f["x"]+f["w"]/2, yb+clear/2, oz+f["z"]+f["d"]/2, f["w"], clear, f["d"])
+            elif f.get("type") == "ceiling":
+                mb.box("Slabs","slab",MATS["slab"],
+                       ox+f["x"]+f["w"]/2, yb+clear-st/2+st, oz+f["z"]+f["d"]/2, f["w"], st, f["d"])
             else:  # appliance
                 fh = f.get("h", 0.85)
                 mb.box("Features","appli",MATS["appli"],
@@ -405,7 +408,8 @@ def plan_png(spec, level_name, out_png, rot180=False):
     if lv is None:
         print("  Kein Geschoss '%s'." % level_name); return
     fw, fd = footprint_of(b, lv); plan = lv.get("plan", {})
-    fig, ax = plt.subplots(figsize=(6, 6*fd/fw if fw else 6), facecolor="white")
+    _zx = max([fd] + [r["z"]+r["d"] for r in plan.get("rooms", [])] + [f["z"]+f["d"] for f in plan.get("features", [])])
+    fig, ax = plt.subplots(figsize=(6, 6*_zx/fw if fw else 6), facecolor="white")
     # Aussenwand (Ring) + Innenraum
     ax.add_patch(Rectangle((0,0), fw, fd, facecolor="#cfd3da", edgecolor="#333", lw=1.5))
     ax.add_patch(Rectangle((te,te), fw-2*te, fd-2*te, facecolor="white", edgecolor="none"))
@@ -428,6 +432,8 @@ def plan_png(spec, level_name, out_png, rot180=False):
             else:                ax.add_patch(Rectangle((a, p["at"]-ti/2), c-a, ti, facecolor="#444"))
     # Features
     for f in plan.get("features", []):
+        if f.get("type") == "ceiling":
+            continue
         col = "#555" if f.get("type") == "column" else "#9aa0ab"
         ax.add_patch(Rectangle((f["x"], f["z"]), f["w"], f["d"], facecolor=col, edgecolor="#222", lw=0.6))
         ax.text(f["x"]+f["w"]/2, f["z"]+f["d"]+0.08, f["label"], ha="center", va="bottom", fontsize=6, color="#444")
@@ -466,7 +472,10 @@ def plan_png(spec, level_name, out_png, rot180=False):
     ax.text(fw/2, -0.45, "%.0f" % (iw*100), ha="center", color="#c00", fontsize=9)
     ax.annotate("", (-0.25, te), (-0.25, fd-te), arrowprops=dict(arrowstyle="<->", color="#c00"))
     ax.text(-0.5, fd/2, "%.0f" % (idp*100), va="center", ha="center", color="#c00", fontsize=9, rotation=90)
-    ax.set_xlim(-0.8, fw+0.3); ax.set_ylim(-0.8, fd+0.3); ax.set_aspect("equal")
+    ext = [fd] + [r["z"]+r["d"] for r in plan.get("rooms", [])] + [f["z"]+f["d"] for f in plan.get("features", [])]
+    ext += [p_["to"] for p_ in plan.get("partitions", []) if p_["axis"] == "z"] + [p_["at"] for p_ in plan.get("partitions", []) if p_["axis"] == "x"]
+    zmax = max(ext)
+    ax.set_xlim(-0.8, fw+0.3); ax.set_ylim(-0.8, zmax+0.3); ax.set_aspect("equal")
     # Nordpfeil (Norden = Outdoor-Seite, +z)
     nx, nz = fw + 0.05, fd - 0.2
     ax.annotate("", (nx, nz), (nx, nz - 0.6), arrowprops=dict(arrowstyle="-|>", color="#333", lw=1.2))

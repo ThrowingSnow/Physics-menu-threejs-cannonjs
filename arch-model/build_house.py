@@ -469,6 +469,27 @@ def build_artifact(spec, glb_path, template_path, out_path):
     print("  Artifact-HTML ->        %s (%d kB)" % (out_path, len(out)//1024))
 
 
+def _overlap(a, c):
+    return (a["x"] < c["x"]+c["w"] and a["x"]+a["w"] > c["x"] and
+            a["z"] < c["z"]+c["d"] and a["z"]+a["d"] > c["z"])
+
+def check_collisions(spec):
+    """Warnt, wenn Features (Bar, Geraete, Stuetzen) die Treppe oder den WC-Schacht schneiden."""
+    b = spec["building"]; sc = b.get("stair_core"); lift = b.get("lift_shaft"); warns = []
+    for lv in b["levels"]:
+        pl = lv.get("plan", {})
+        core = sc if pl.get("open_plan") else pl.get("stair")
+        for f in pl.get("features", []):
+            if core and _overlap(f, core):
+                warns.append("%-4s Feature '%s' ueberlappt die Treppe" % (lv["name"], f.get("label", f.get("id"))))
+            if lift and pl.get("open_plan") and pl.get("wc_in_shaft", True) and _overlap(f, lift):
+                warns.append("%-4s Feature '%s' ueberlappt WC/Liftschacht" % (lv["name"], f.get("label", f.get("id"))))
+    if warns:
+        print("  ! KOLLISIONEN:");  [print("    - " + w) for w in warns]
+    else:
+        print("  Kollisionen:            keine")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in",  dest="inp", default=os.path.join(HERE, "house.json"))
@@ -487,6 +508,7 @@ def main():
     print("  GLB: %d kB, %d Meshes, %d Primitives, %d Materialien"
           % (nbytes//1024, nmesh, nprim, len(mb.materials)))
     report(spec, dims)
+    check_collisions(spec)
     if args.preview: preview(mb, args.preview, dims)
     if args.plan:
         plan_png(spec, args.plan, args.planout or os.path.join(HERE, "plan_%s.png" % args.plan))

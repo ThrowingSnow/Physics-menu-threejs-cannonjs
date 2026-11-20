@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Haus - grobes Arbeitsmodell",
-    "revision": 5,
+    "revision": 6,
     "date": "2026-11-20",
     "units": "meters",
     "up_axis": "Y",
@@ -39,7 +39,12 @@
       { "x": 2.45, "z": 5.80, "w": 0.30, "d": 0.30 }
     ],
     "_conf_columns": "estimate",
-    "_note_open": "Offene Geschosse (open_plan) haben KEINE Innenwaende - nur Deckenstuetzen (columns) und das WC/Bad im Liftschacht sind getrennt.",
+    "stair_core": {
+      "x": 0.30, "z": 2.60, "w": 1.80, "d": 1.80, "type": "spiral", "turns": 0.85,
+      "_conf": "estimate",
+      "_note": "Wendeltreppe (Spindeltreppe) um einen Schacht - gleicher Kern durch alle offenen Geschosse. Lage/Durchmesser geschaetzt."
+    },
+    "_note_open": "Offene Geschosse (open_plan) haben KEINE Innenwaende - nur Deckenstuetzen (columns) und das WC/Bad im Liftschacht sind getrennt. Erschliessung = Wendeltreppe (stair_core).",
 
     "levels": [
       {

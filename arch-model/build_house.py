@@ -17,7 +17,7 @@ Geschosse werden zentriert uebereinander gestapelt (building.align = "center").
 Plan-Koordinaten sind LOKAL pro Geschoss: 0..width / 0..depth.
 """
 
-import argparse, json, os
+import argparse, json, os, math
 from collections import defaultdict
 import numpy as np
 
@@ -28,7 +28,7 @@ MATS = {
     "slab":   {"rgba": (0.74, 0.75, 0.78, 0.13), "blend": True,  "double": True},
     "roof":   {"rgba": (0.58, 0.44, 0.40, 0.17), "blend": True,  "double": True},
     "part":   {"rgba": (0.93, 0.93, 0.96, 1.00), "blend": False, "double": True},
-    "stair":  {"rgba": (0.62, 0.64, 0.68, 0.90), "blend": True,  "double": False},
+    "stair":  {"rgba": (0.62, 0.64, 0.68, 0.95), "blend": True,  "double": True},
     "column": {"rgba": (0.50, 0.50, 0.56, 1.00), "blend": False, "double": False},
     "appli":  {"rgba": (0.86, 0.88, 0.92, 1.00), "blend": False, "double": False},
 }
@@ -124,6 +124,31 @@ def stair_steps(mb, x0, x1, z0, z1, base_y, floor_to_floor, direction="+z", step
         mb.box("Stairs","stair",mat,(x0+x1)/2, base_y+h/2, zc, (x1-x0), h, tread)
 
 
+def spiral_stair(mb, cx, cz, r_in, r_out, base_y, ff, start=0.0, turn=math.pi*1.6, steps=14):
+    """Wendeltreppe: Trittstufen als Keile um einen zentralen Schacht."""
+    mat = MATS["stair"]; riser = ff/steps; thick = max(0.05, riser*0.55)
+    def P(r, a, y): return (cx + r*math.cos(a), y, cz + r*math.sin(a))
+    for k in range(steps):
+        a0 = start + k*(turn/steps); a1 = start + (k+1)*(turn/steps)
+        yt = base_y + (k+1)*riser; yb2 = yt - thick
+        A=P(r_in,a0,yt); B=P(r_out,a0,yt); C=P(r_out,a1,yt); D=P(r_in,a1,yt)
+        a=P(r_in,a0,yb2); b=P(r_out,a0,yb2); c=P(r_out,a1,yb2); d=P(r_in,a1,yb2)
+        mb.quad("Stairs","stair",mat, A,B,C,D)   # Trittflaeche
+        mb.quad("Stairs","stair",mat, d,c,b,a)   # Unterseite
+        mb.quad("Stairs","stair",mat, A,D,d,a)   # innen
+        mb.quad("Stairs","stair",mat, B,b,c,C)   # aussen
+        mb.quad("Stairs","stair",mat, A,a,b,B)   # Setzstufe (Anfang)
+
+
+def spiral_stair_in_rect(mb, ox, oz, rect, base_y, ff):
+    """Wendeltreppe passend in das (lokale) Treppen-Rechteck."""
+    cx = ox + rect["x"] + rect["w"]/2; cz = oz + rect["z"] + rect["d"]/2
+    r_out = min(rect["w"], rect["d"])/2 * 0.96
+    spiral_stair(mb, cx, cz, r_out*0.18, r_out, base_y, ff,
+                 start=float(rect.get("start_angle", 0.0)),
+                 turn=math.pi*float(rect.get("turns", 0.8))*2)
+
+
 def wc_in_shaft(mb, ox, oz, shaft, yb, clear, ti):
     """Abgetrenntes WC/Bad im alten Liftschacht: 4 Waende (Tuer Sueden) + Pad.
     shaft in lokalen Geschoss-Koordinaten."""
@@ -151,7 +176,12 @@ def build(spec):
     te = b["wall_exterior_thickness"]; ti = b["wall_interior_thickness"]; st = b["slab_thickness"]
     df = b["default_footprint"]; Cx, Cz = df["width_x"]/2, df["depth_z"]/2
     levels = b["levels"]; n = len(levels)
-    lift = b.get("lift_shaft"); cols = b.get("columns", [])
+    lift = b.get("lift_shaft"); cols = b.get("columns", []); stair_core = b.get("stair_core")
+
+    def stair_rect_of(lv):
+        pl = lv.get("plan", {})
+        if pl.get("open_plan") and stair_core: return stair_core
+        return pl.get("stair")
 
     base = [0.0]
     for lv in levels: base.append(base[-1] + lv["floor_to_floor"])
@@ -215,11 +245,10 @@ def build(spec):
                 cw, cd = c.get("w", 0.30), c.get("d", 0.30)
                 mb.box("Features","column",MATS["column"],
                        ox+c["x"]+cw/2, yb+clear/2, oz+c["z"]+cd/2, cw, clear, cd)
-        # Treppe dieses Geschosses
-        s = plan.get("stair")
-        if s:
-            stair_steps(mb, ox+s["x"], ox+s["x"]+s["w"], oz+s["z"], oz+s["z"]+s["d"],
-                        yb, h, s.get("dir", "+z"))
+        # Wendeltreppe: Kern durch alle Geschosse ausser dem obersten
+        sr = stair_rect_of(lv)
+        if sr and i < n-1:
+            spiral_stair_in_rect(mb, ox, oz, sr, yb, h)
 
     # ---- Boden-/Deckenplatten (eine je Geschoss + oberste Decke) ----
     for sidx in range(n+1):
@@ -227,9 +256,9 @@ def build(spec):
         ox, oz, fw, fd = offset(lv)
         y = base[sidx]
         hole = None
-        if sidx >= 1:                       # Loch von der Treppe des Geschosses darunter
+        if 1 <= sidx <= n-1:                 # Loch von der Treppe des Geschosses darunter
             below = levels[sidx-1]
-            bs = below.get("plan", {}).get("stair")
+            bs = stair_rect_of(below)
             if bs:
                 bx, bz, _, _ = offset(below)
                 hole = (bx+bs["x"], bx+bs["x"]+bs["w"], bz+bs["z"], bz+bs["z"]+bs["d"])
@@ -373,13 +402,23 @@ def plan_png(spec, level_name, out_png):
         for c in b.get("columns", []):
             cw, cd = c.get("w", 0.30), c.get("d", 0.30)
             ax.add_patch(Rectangle((c["x"], c["z"]), cw, cd, facecolor="#555", edgecolor="#222", lw=0.6))
-    # Treppe
-    s = plan.get("stair")
+    # Treppe (Wendeltreppe als Kreis + Spindel, sonst Rechteck)
+    s = b.get("stair_core") if (plan.get("open_plan") and b.get("stair_core")) else plan.get("stair")
     if s:
-        ax.add_patch(Rectangle((s["x"], s["z"]), s["w"], s["d"], facecolor="none",
-                     edgecolor="#333", lw=1.0, hatch="///"))
-        ax.text(s["x"]+s["w"]/2, s["z"]+s["d"]/2, s.get("label","Treppe"), ha="center", va="center",
-                fontsize=6, color="#333", rotation=90)
+        if s.get("type") == "spiral":
+            from matplotlib.patches import Circle
+            cx, cz = s["x"]+s["w"]/2, s["z"]+s["d"]/2; rr = min(s["w"], s["d"])/2
+            ax.add_patch(Circle((cx, cz), rr, facecolor="none", edgecolor="#333", lw=1.0))
+            ax.add_patch(Circle((cx, cz), rr*0.18, facecolor="#333", edgecolor="none"))
+            for a in [i*math.pi/6 for i in range(12)]:
+                ax.plot([cx+rr*0.18*math.cos(a), cx+rr*math.cos(a)],
+                        [cz+rr*0.18*math.sin(a), cz+rr*math.sin(a)], color="#333", lw=0.4)
+            ax.text(cx, cz-rr-0.12, "Wendeltreppe", ha="center", va="top", fontsize=6, color="#333")
+        else:
+            ax.add_patch(Rectangle((s["x"], s["z"]), s["w"], s["d"], facecolor="none",
+                         edgecolor="#333", lw=1.0, hatch="///"))
+            ax.text(s["x"]+s["w"]/2, s["z"]+s["d"]/2, s.get("label","Treppe"), ha="center", va="center",
+                    fontsize=6, color="#333", rotation=90)
     # Masslinien (innen)
     iw, idp = fw-2*te, fd-2*te
     ax.annotate("", (te, -0.25), (fw-te, -0.25), arrowprops=dict(arrowstyle="<->", color="#c00"))

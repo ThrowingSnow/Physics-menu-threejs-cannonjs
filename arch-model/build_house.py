@@ -31,6 +31,8 @@ MATS = {
     "stair":  {"rgba": (0.62, 0.64, 0.68, 0.95), "blend": True,  "double": True},
     "column": {"rgba": (0.50, 0.50, 0.56, 1.00), "blend": False, "double": False},
     "appli":  {"rgba": (0.86, 0.88, 0.92, 1.00), "blend": False, "double": False},
+    "beam":   {"rgba": (0.74, 0.60, 0.40, 1.00), "blend": False, "double": True},
+    "trott":  {"rgba": (0.55, 0.56, 0.58, 1.00), "blend": True,  "double": True},
 }
 def room_material(c): return {"rgba": (c[0], c[1], c[2], 1.0), "blend": False, "double": False}
 
@@ -177,6 +179,7 @@ def build(spec):
     df = b["default_footprint"]; Cx, Cz = df["width_x"]/2, df["depth_z"]/2
     levels = b["levels"]; n = len(levels)
     lift = b.get("lift_shaft"); cols = b.get("columns", []); stair_core = b.get("stair_core")
+    beams = b.get("ceiling_beams"); trott = b.get("trottoir")
 
     def stair_rect_of(lv):
         pl = lv.get("plan", {})
@@ -245,6 +248,14 @@ def build(spec):
                 cw, cd = c.get("w", 0.30), c.get("d", 0.30)
                 mb.box("Features","column",MATS["column"],
                        ox+c["x"]+cw/2, yb+clear/2, oz+c["z"]+cd/2, cw, clear, cd)
+        # Holzbalkendecke: Balken quer (in X) ueber die Breite, knapp unter der Decke
+        if plan.get("beam_ceiling") and beams:
+            bh = beams.get("height", 0.20); bd = beams.get("depth", 0.12); sp = beams.get("spacing", 0.55)
+            by = y0 + h - st - bh/2
+            z = oz + te + bd
+            while z < oz + fd - te:
+                mb.box("Beams","beam",MATS["beam"], ox+fw/2, by, z, fw-2*te, bh, bd)
+                z += sp
         # Wendeltreppe: Kern durch alle Geschosse ausser dem obersten
         sr = stair_rect_of(lv)
         if sr and i < n-1:
@@ -263,6 +274,14 @@ def build(spec):
                 bx, bz, _, _ = offset(below)
                 hole = (bx+bs["x"], bx+bs["x"]+bs["w"], bz+bs["z"], bz+bs["z"]+bs["d"])
         slab(mb,"Slabs","slab",MATS["slab"], ox, ox+fw, oz, oz+fd, y, st, hole)
+
+    # ---- Trottoir (Gehsteig rund ums Haus auf Strassenniveau) ----
+    if trott:
+        tw = trott.get("width", 1.5)
+        li = next((k for k, l in enumerate(levels) if l["name"] == trott.get("level", "EG")), min(1, n-1))
+        tox, toz, tfw, tfd = offset(levels[li]); ty = base[li]
+        slab(mb,"Site","trott",MATS["trott"], tox-tw, tox+tfw+tw, toz-tw, toz+tfd+tw, ty, 0.08,
+             hole=(tox, tox+tfw, toz, toz+tfd))
 
     # ---- Dach ----
     top = levels[n-1]; tox, toz, tfw, tfd = offset(top)

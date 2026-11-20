@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Haus - grobes Arbeitsmodell",
-    "revision": 6,
+    "revision": 7,
     "date": "2026-11-20",
     "units": "meters",
     "up_axis": "Y",
@@ -43,6 +43,16 @@
       "x": 0.30, "z": 2.60, "w": 1.80, "d": 1.80, "type": "spiral", "turns": 0.85,
       "_conf": "estimate",
       "_note": "Wendeltreppe (Spindeltreppe) um einen Schacht - gleicher Kern durch alle offenen Geschosse. Lage/Durchmesser geschaetzt."
+    },
+    "ceiling_beams": {
+      "spacing": 0.55, "depth": 0.12, "height": 0.20,
+      "_conf": "estimate",
+      "_note": "Holzbalkendecke: Balken quer (in X, ueber die Breite). In Office + Wohnung (beam_ceiling: true)."
+    },
+    "trottoir": {
+      "width": 1.50, "level": "EG",
+      "_conf": "estimate",
+      "_note": "Gehsteig rund ums Haus auf Strassenniveau (EG). Breite/Seiten noch grob."
     },
     "_note_open": "Offene Geschosse (open_plan) haben KEINE Innenwaende - nur Deckenstuetzen (columns) und das WC/Bad im Liftschacht sind getrennt. Erschliessung = Wendeltreppe (stair_core).",
 
@@ -107,29 +117,38 @@
         "_note": "Offener Office-Grundriss (Raedli). Keine Innenwaende - nur Deckenstuetzen + WC/Bad im Liftschacht. Fotos + Masse folgen.",
         "plan": {
           "open_plan": true,
+          "beam_ceiling": true,
           "_coords": "lokal 0..6.80 / 0..7.60",
           "rooms": [
             { "id": "office", "label": "Office / Raedli", "color": [0.36, 0.56, 0.86], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 }
           ],
+          "features": [
+            { "id": "kueche_og1", "label": "Kueche", "type": "appliance", "x": 2.60, "z": 0.30, "w": 2.00, "d": 0.60, "h": 0.90, "_conf": "estimate" }
+          ],
           "ext_openings": [
             { "id": "og1_fenster_e", "side": "E", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" },
             { "id": "og1_fenster_w", "side": "W", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" }
-          ],
-          "stair": { "id": "treppe_og1", "label": "Treppe", "x": 0.45, "z": 3.50, "w": 1.30, "d": 2.40, "dir": "-z", "_conf": "estimate" }
+          ]
         }
       },
 
       {
-        "name": "OG2", "role": "(offen)", "floor_to_floor": 2.80, "_conf": "estimate",
-        "_note": "Programm noch offen. Offener Grundriss + WC im Liftschacht als Standard.",
+        "name": "OG2", "role": "Wohnung", "floor_to_floor": 2.80, "_conf": "estimate",
+        "_note": "Wohnung ueber dem Office - fast identischer Grundriss wie OG1, nur Kueche leicht andere Masse.",
         "plan": {
           "open_plan": true,
-          "rooms": [ { "id": "og2", "label": "OG2 (offen)", "color": [0.70, 0.72, 0.78], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 } ],
+          "beam_ceiling": true,
+          "_coords": "lokal 0..6.80 / 0..7.60",
+          "rooms": [
+            { "id": "wohnung", "label": "Wohnung", "color": [0.52, 0.80, 0.62], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 }
+          ],
+          "features": [
+            { "id": "kueche_og2", "label": "Kueche", "type": "appliance", "x": 2.40, "z": 0.30, "w": 2.40, "d": 0.60, "h": 0.90, "_conf": "estimate" }
+          ],
           "ext_openings": [
             { "id": "og2_fenster_e", "side": "E", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" },
             { "id": "og2_fenster_w", "side": "W", "from": 1.50, "to": 6.00, "y0": 0.90, "y1": 2.30, "kind": "window" }
-          ],
-          "stair": { "id": "treppe_og2", "label": "Treppe", "x": 0.45, "z": 3.50, "w": 1.30, "d": 2.40, "dir": "-z", "_conf": "estimate" }
+          ]
         }
       },
 

@@ -1,0 +1,221 @@
+<title>Haus Arbeitsmodell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: Vollbild-3D-Canvas mit schwebenden HUD-Panels (bewusst dunkel, Single-Theme).
+     Die Platzhalter-Tokens unten ersetzt build_house.py --artifact beim Generieren. */
+  :root{
+    --bg:#0f1116; --fg:#e8eaed; --dim:#8b9099; --line:#272b33;
+    --panel:rgba(16,18,22,.80); --accent:#6ea8fe;
+    color-scheme: dark;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--mono);overflow:hidden}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  .panel{position:fixed;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;backdrop-filter:blur(8px);padding:12px 14px;font-size:12px;line-height:1.5}
+  .ui-hidden .panel{display:none}
+
+  #hud{top:calc(14px + env(safe-area-inset-top,0px));
+       left:calc(14px + env(safe-area-inset-left,0px));max-width:62vw}
+  #hud h1{margin:0 0 2px;font-size:13px;letter-spacing:.3px}
+  #hud .rev{color:var(--dim);font-size:11px;margin-bottom:6px}
+  #legend{margin-top:6px;border-top:1px solid var(--line);padding-top:6px}
+  #legend .row{display:flex;align-items:center;gap:8px}
+  #legend .sw{width:11px;height:11px;border-radius:2px;flex:none}
+  #legend .lvl{color:var(--dim);margin-top:6px;font-size:11px}
+
+  #toggles{top:calc(14px + env(safe-area-inset-top,0px));
+           right:calc(14px + env(safe-area-inset-right,0px));
+           display:flex;flex-direction:column;gap:6px;padding:8px;max-width:46vw}
+  #toggles .cap{color:var(--dim);font-size:10px;letter-spacing:.4px;margin:2px 2px 0}
+  #toggles button{font:inherit;font-size:11px;color:var(--fg);cursor:pointer;
+    background:#1a1d24;border:1px solid var(--line);border-radius:7px;padding:7px 10px;text-align:left}
+  #toggles button[aria-pressed="false"]{color:var(--dim);opacity:.5}
+  #toggles .views{display:flex;flex-wrap:wrap;gap:5px}
+  #toggles .views button{padding:6px 8px;text-align:center;flex:1 0 auto}
+  #toggles button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  #ctrl{bottom:calc(14px + env(safe-area-inset-bottom,0px));
+        left:calc(14px + env(safe-area-inset-left,0px));color:var(--dim);max-width:72vw}
+  #ctrl b{color:var(--fg);font-weight:600}
+  #ctrl .k{color:var(--fg);background:#1c1f26;border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+
+  /* "UI aus": der Clean-Hinweis bleibt dezent sichtbar, damit man zurueckfindet */
+  #cleanhint{position:fixed;bottom:10px;right:12px;color:var(--dim);font-size:10px;opacity:.5;display:none}
+  .ui-hidden #cleanhint{display:block}
+
+  #loading{position:fixed;inset:0;display:grid;place-items:center;color:var(--dim);font-size:13px}
+  #loading[hidden]{display:none}
+  @media (max-width:560px){ #ctrl{display:none} #hud{max-width:52vw} }
+  @media (prefers-reduced-motion:reduce){ *{scroll-behavior:auto} }
+</style>
+
+<div id="app"></div>
+
+<div id="hud" class="panel">
+  <h1>Haus &mdash; Arbeitsmodell</h1>
+  <div class="rev" id="rev">Rev __REV__ &middot; __DATE__ &middot; Meter</div>
+  <div id="legend"></div>
+</div>
+
+<div id="toggles" class="panel">
+  <div class="cap">BAUTEILE</div>
+  <button data-group="Roof"     aria-pressed="true">Dach</button>
+  <button data-group="Shell"    aria-pressed="true">H&uuml;lle</button>
+  <button data-group="Slabs"    aria-pressed="true">Decken</button>
+  <button data-group="Stairs"   aria-pressed="true">Treppen</button>
+  <button data-group="Interior" aria-pressed="true">Innenw&auml;nde</button>
+  <button data-group="Features" aria-pressed="true">St&uuml;tzen/Ger&auml;te</button>
+  <button data-group="Beams"    aria-pressed="true">Balkendecke</button>
+  <button data-group="Site"     aria-pressed="true">Trottoir</button>
+  <button data-group="RoomPads" aria-pressed="true">R&auml;ume</button>
+  <div class="cap">ANSICHT</div>
+  <div class="views">
+    <button data-view="front">Front</button>
+    <button data-view="back">Hinten</button>
+    <button data-view="left">Links</button>
+    <button data-view="right">Rechts</button>
+    <button data-view="top">Oben</button>
+    <button data-view="iso">ISO</button>
+  </div>
+  <button id="uiBtn">UI ausblenden (Screenshot)</button>
+</div>
+
+<div id="ctrl" class="panel">
+  <b>Ziehen</b> drehen &middot; <b>Scroll</b> zoom &middot; <b>Rechts</b> schieben<br>
+  <span class="k">1</span>&ndash;<span class="k">6</span> Ansichten &middot;
+  <span class="k">R</span> Dach &middot; <span class="k">G</span> H&uuml;lle &middot;
+  <span class="k">U</span> UI aus &middot; <span class="k">F</span> einpassen
+</div>
+
+<div id="cleanhint">U = UI zur&uuml;ck</div>
+<div id="loading">lade Modell&hellip;</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+
+const LEGEND = /*__LEGEND__*/ [];
+const GLB_B64 = "__GLB_B64__";
+
+(function(){
+  const leg = document.getElementById('legend');
+  LEGEND.forEach(lv => {
+    const h = document.createElement('div'); h.className='lvl';
+    h.textContent = lv.name + (lv.role ? ' (' + lv.role + ')' : '');
+    leg.appendChild(h);
+    lv.rooms.forEach(r => {
+      const col = 'rgb(' + r.color.map(v=>Math.round(v*255)).join(',') + ')';
+      const row = document.createElement('div'); row.className='row';
+      row.innerHTML = '<span class="sw" style="background:'+col+'"></span>'+r.label;
+      leg.appendChild(row);
+    });
+  });
+})();
+
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0f1116');
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 500);
+
+scene.add(new THREE.HemisphereLight('#dfe7f2','#20242c',1.15));
+const sun = new THREE.DirectionalLight('#fff4e0',1.5); sun.position.set(6,14,4); scene.add(sun);
+const fill = new THREE.DirectionalLight('#cfe0ff',0.5); fill.position.set(-8,5,-6); scene.add(fill);
+const grid = new THREE.GridHelper(60,60,0x2a2e36,0x1b1e24); grid.position.y=-0.01; scene.add(grid);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI*0.49;
+
+const groups = {}; const modelBox = new THREE.Box3(); let ready=false;
+
+function b64ToBuf(b64){
+  const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+new GLTFLoader().parse(b64ToBuf(GLB_B64), '', (gltf) => {
+  const root = gltf.scene;
+  root.traverse(o => {
+    if (o.isMesh && o.material){
+      (Array.isArray(o.material)?o.material:[o.material]).forEach(m => {
+        if (m.transparent || (m.opacity!==undefined && m.opacity<1)){ m.depthWrite=false; m.transparent=true; }
+        m.side = THREE.DoubleSide;
+      });
+    }
+    if (o.name) groups[o.name] = o;
+  });
+  scene.add(root); modelBox.setFromObject(root); ready=true; setView('iso');
+  document.getElementById('loading').hidden = true;
+}, (err) => {
+  document.getElementById('loading').textContent = 'Fehler beim Laden des Modells.';
+  console.error(err);
+});
+
+// ---- Ansichten / Kamera-Presets ----
+function setView(name){
+  if (!ready) return;
+  const c = modelBox.getCenter(new THREE.Vector3());
+  const s = modelBox.getSize(new THREE.Vector3());
+  const r = Math.max(s.x,s.y,s.z);
+  controls.target.copy(c);
+  const P = {
+    front: [c.x,           c.y+0.15*r, c.z-2.0*r],
+    back:  [c.x,           c.y+0.15*r, c.z+2.0*r],
+    left:  [c.x-2.0*r,     c.y+0.15*r, c.z],
+    right: [c.x+2.0*r,     c.y+0.15*r, c.z],
+    top:   [c.x+0.001,     c.y+2.4*r,  c.z],
+    iso:   [c.x+1.1*r,     c.y+1.25*r, c.z+1.35*r],
+  }[name] || [c.x+1.1*r, c.y+1.25*r, c.z+1.35*r];
+  camera.position.set(P[0],P[1],P[2]);
+  camera.near=r/100; camera.far=r*20; camera.updateProjectionMatrix();
+}
+function setGroup(name,on){
+  if (groups[name]) groups[name].visible = on;
+  const btn = document.querySelector('#toggles button[data-group="'+name+'"]');
+  if (btn) btn.setAttribute('aria-pressed', String(on));
+}
+function toggleUI(){ document.body.classList.toggle('ui-hidden'); }
+
+document.querySelectorAll('#toggles button[data-group]').forEach(b => {
+  b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-pressed')!=='true'));
+});
+document.querySelectorAll('#toggles button[data-view]').forEach(b => {
+  b.addEventListener('click', () => setView(b.dataset.view));
+});
+document.getElementById('uiBtn').addEventListener('click', toggleUI);
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  const views = {'1':'front','2':'back','3':'left','4':'right','5':'top','6':'iso'};
+  if (views[k]) setView(views[k]);
+  if (k==='r') setGroup('Roof', !groups['Roof']?.visible);
+  if (k==='g') setGroup('Shell', !groups['Shell']?.visible);
+  if (k==='u') toggleUI();
+  if (k==='f') setView('iso');
+  if (k==='t') setView('top');
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+(function tick(){ requestAnimationFrame(tick); controls.update(); renderer.render(scene,camera); })();
+</script>

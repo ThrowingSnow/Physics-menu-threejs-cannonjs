@@ -1,0 +1,330 @@
+{
+  "meta": {
+    "project": "Haus - grobes Arbeitsmodell",
+    "revision": 12,
+    "date": "2026-11-20",
+    "units": "meters",
+    "up_axis": "Y",
+    "note": "Pro Geschoss ein Level mit eigenem Fussabdruck + Grundriss. Werte mit _conf='estimate' sind Platzhalter. Keller (UG) = erste echte Masse aus Handskizze. Geschosse werden zentriert uebereinander gestapelt (align='center').",
+    "confidence_legend": {
+      "measured": "aus Plan/Skizze ablesbar / von dir bestaetigt",
+      "derived": "aus anderen Massen gerechnet",
+      "estimate": "Platzhalter - bitte korrigieren"
+    }
+  },
+  "building": {
+    "wall_exterior_thickness": 0.3,
+    "wall_interior_thickness": 0.12,
+    "slab_thickness": 0.25,
+    "align": "center",
+    "default_footprint": {
+      "width_x": 6.8,
+      "depth_z": 7.6,
+      "_conf": "estimate",
+      "_note": "Fussabdruck der Obergeschosse - noch geschaetzt. Bestaetigt: Keller ist ein Teil-Untergeschoss, Obergeschosse sind breiter (Variante B)."
+    },
+    "roof": {"type": "gable", "ridge_axis": "z", "height": 2.4, "overhang": 0.4, "_conf": "estimate"},
+    "lift_shaft": {
+      "x": 5.0,
+      "z": 0.3,
+      "w": 1.5,
+      "d": 1.6,
+      "door": "N",
+      "color": [0.4, 0.8, 0.86],
+      "_conf": "derived",
+      "_note": "Alter Liftschacht unten rechts (SE): EG = 2x WC, Office/Wohnung = Bad. Aus CAD + Office-Markup."
+    },
+    "columns": [{"x": 2.45, "z": 3.7, "w": 0.3, "d": 0.3}, {"x": 2.45, "z": 5.8, "w": 0.3, "d": 0.3}],
+    "_conf_columns": "estimate",
+    "stair_core": {
+      "x": 0.6,
+      "z": 0.3,
+      "w": 1.6,
+      "d": 1.6,
+      "type": "spiral",
+      "turns": 0.85,
+      "_conf": "derived",
+      "_note": "Wendeltreppe im Treppenhaus unten links (SW), aus CAD-Markup gemessen. Durchmesser ~1.6 m geschaetzt."
+    },
+    "ceiling_beams": {
+      "spacing": 0.55,
+      "depth": 0.12,
+      "height": 0.2,
+      "_conf": "estimate",
+      "_note": "Holzbalkendecke: Balken quer (in X, ueber die Breite). In Office + Wohnung (beam_ceiling: true)."
+    },
+    "trottoir": {"width": 1.5, "level": "EG", "_conf": "estimate", "_note": "Gehsteig rund ums Haus auf Strassenniveau (EG). Breite/Seiten noch grob."},
+    "_note_open": "Offene Geschosse (open_plan) haben KEINE Innenwaende - nur Deckenstuetzen (columns) und das WC/Bad im Liftschacht sind getrennt. Erschliessung = Wendeltreppe (stair_core).",
+    "levels": [
+      {
+        "name": "UG",
+        "role": "Keller",
+        "floor_to_floor": 2.4,
+        "_conf_height": "estimate",
+        "footprint": {
+          "width_x": 6.8,
+          "depth_z": 8.32,
+          "x0": 0.0,
+          "z0": 0.0,
+          "_conf": "derived",
+          "_note": "Innen 6.20 breit (= Hausbreite). Tiefe: Band 1.70 (Sueden, unter EG-Serviceband) + Wand + Keller 5.90 = 7.72 innen. Ragt damit ~0.7 m unter die Outdoor-Terrasse (oder die 5.90 sind etwas weniger). Handskizze ist 180 Grad zum Haus gedreht."
+        },
+        "plan": {
+          "_coords": "lokal = Welt (Keller an SW-Ecke). Norden (+z) = Outdoor-Seite. Skizze des Users ist dazu 180 Grad gedreht.",
+          "partitions": [
+            {
+              "id": "band_nord",
+              "axis": "x",
+              "at": 2.06,
+              "from": 0.3,
+              "to": 6.5,
+              "_note": "Wand zwischen Band (Sued) und Keller",
+              "openings": [
+                {"from": 3.5, "to": 4.3, "y0": 0.0, "y1": 2.0, "kind": "door", "_note": "Keller -> Vorraum/Alk-Lager"},
+                {"from": 5.25, "to": 6.05, "y0": 0.0, "y1": 2.0, "kind": "door", "_note": "Keller -> Kuehlzelle"}
+              ]
+            },
+            {
+              "id": "treppe_ost",
+              "axis": "z",
+              "at": 2.94,
+              "from": 0.3,
+              "to": 2.0,
+              "openings": [{"from": 0.45, "to": 1.25, "y0": 0.0, "y1": 2.0, "kind": "door"}]
+            },
+            {"id": "kuehl_west", "axis": "z", "at": 4.89, "from": 0.3, "to": 2.0, "openings": []},
+            {
+              "id": "heiz_wand",
+              "axis": "z",
+              "at": 2.94,
+              "from": 2.12,
+              "to": 8.02,
+              "openings": [{"from": 2.45, "to": 3.25, "y0": 0.0, "y1": 2.0, "kind": "door", "_note": "Tuer Heizung, am Band-Ende (Markup)"}]
+            },
+            {"id": "nachbar_sued", "axis": "x", "at": 6.82, "from": 3.97, "to": 6.5, "openings": []},
+            {"id": "nachbar_west", "axis": "z", "at": 3.97, "from": 6.82, "to": 8.02, "openings": []}
+          ],
+          "rooms": [
+            {"id": "keller", "label": "Keller", "color": [0.56, 0.6, 0.68], "x": 3.0, "z": 2.12, "w": 3.5, "d": 5.9},
+            {"id": "heizung", "label": "Heizung/Lueftung", "color": [0.9, 0.55, 0.3], "x": 0.3, "z": 2.12, "w": 2.58, "d": 5.9},
+            {"id": "ug_treppe", "label": "Treppe -> Bar", "color": [0.95, 0.76, 0.3], "x": 0.3, "z": 0.3, "w": 2.58, "d": 1.7},
+            {"id": "alklager", "label": "Alk-Lager", "color": [0.8, 0.55, 0.75], "x": 3.0, "z": 0.3, "w": 1.83, "d": 1.7},
+            {"id": "kuehlzelle", "label": "Kuehlzelle", "color": [0.65, 0.85, 0.95], "x": 4.95, "z": 0.3, "w": 1.55, "d": 1.7},
+            {
+              "id": "nachbar",
+              "label": "Abteil Nachbarhaus",
+              "color": [0.36, 0.36, 0.4],
+              "x": 4.03,
+              "z": 6.88,
+              "w": 2.47,
+              "d": 1.14,
+              "_note": "gehoert nicht zu uns - liegt unter der DJ-Booth-Nische"
+            }
+          ],
+          "features": [
+            {"id": "stuetze", "label": "Stuetze 50x50", "type": "column", "x": 6.0, "z": 5.12, "w": 0.5, "d": 0.5, "_conf": "estimate"},
+            {"id": "wama", "label": "Waschmaschine", "type": "appliance", "x": 5.3, "z": 6.1, "w": 0.6, "d": 0.6, "h": 0.85, "_conf": "estimate"},
+            {"id": "tumbler", "label": "Tumbler", "type": "appliance", "x": 4.6, "z": 6.1, "w": 0.6, "d": 0.6, "h": 0.85, "_conf": "estimate"}
+          ],
+          "ext_openings": [],
+          "stair": {"id": "treppe_ug", "label": "Treppe nach oben (Bar)", "x": 0.6, "z": 0.3, "w": 1.6, "d": 1.6, "type": "spiral", "_conf": "derived"}
+        }
+      },
+      {
+        "name": "EG",
+        "role": "Club/Bar",
+        "floor_to_floor": 2.8,
+        "_conf": "estimate",
+        "_note": "Club/Bar ueber dem Keller. Positionen aus dem markierten CAD-Plan gemessen (~85 px/m); Masse +-10 cm.",
+        "plan": {
+          "open_plan": true,
+          "wc_in_shaft": false,
+          "_coords": "lokal 0..6.80 / 0..7.60",
+          "rooms": [
+            {"id": "club", "label": "Club", "color": [0.62, 0.42, 0.8], "x": 0.3, "z": 1.95, "w": 6.2, "d": 5.35},
+            {"id": "gang", "label": "Gang / Keller", "color": [0.72, 0.7, 0.8], "x": 2.85, "z": 0.3, "w": 3.65, "d": 1.65},
+            {
+              "id": "outdoor",
+              "label": "Outdoor",
+              "color": [0.55, 0.78, 0.48],
+              "x": 0.3,
+              "z": 7.6,
+              "w": 3.64,
+              "d": 1.2,
+              "_conf": "estimate",
+              "_note": "Outdoor links der Booth-Nische"
+            },
+            {"id": "wc1", "label": "WC", "color": [0.4, 0.8, 0.86], "x": 5.0, "z": 0.3, "w": 0.83, "d": 1.15},
+            {"id": "wc2", "label": "WC", "color": [0.4, 0.8, 0.86], "x": 5.83, "z": 0.3, "w": 0.67, "d": 1.15},
+            {"id": "outdoor_n", "label": "Outdoor", "color": [0.55, 0.78, 0.48], "x": 0.3, "z": 8.8, "w": 6.2, "d": 2.8, "_conf": "estimate"},
+            {"id": "booth_boden", "label": "DJ-Booth", "color": [0.3, 0.3, 0.36], "x": 4.06, "z": 7.3, "w": 2.62, "d": 1.44}
+          ],
+          "features": [
+            {
+              "id": "bar_arm",
+              "label": "Bar",
+              "type": "appliance",
+              "x": 0.3,
+              "z": 4.8,
+              "w": 2.06,
+              "d": 0.55,
+              "h": 1.1,
+              "_note": "oberer Arm, ab Westwand"
+            },
+            {
+              "id": "bar_leg",
+              "label": "Bar",
+              "type": "appliance",
+              "x": 1.83,
+              "z": 2.69,
+              "w": 0.53,
+              "d": 2.11,
+              "h": 1.1,
+              "_note": "Bein auf der Ostseite, nach Sueden"
+            },
+            {
+              "id": "backbar",
+              "label": "Backbar",
+              "type": "appliance",
+              "x": 0.3,
+              "z": 2.45,
+              "w": 0.45,
+              "d": 2.35,
+              "h": 1.0,
+              "_note": "Rueckbuffet an der Westwand"
+            },
+            {
+              "id": "booth",
+              "label": "DJ-Booth",
+              "type": "appliance",
+              "x": 4.15,
+              "z": 7.95,
+              "w": 2.4,
+              "d": 0.7,
+              "h": 1.0,
+              "_conf": "estimate",
+              "_note": "DJ-Pult hinten in der Nische"
+            },
+            {"id": "booth_decke", "label": "Decke Nische", "type": "ceiling", "x": 4.0, "z": 7.6, "w": 2.8, "d": 1.2}
+          ],
+          "ext_openings": [
+            {
+              "id": "eg_eingang",
+              "side": "N",
+              "from": 2.06,
+              "to": 3.9,
+              "y0": 0.0,
+              "y1": 2.2,
+              "kind": "door",
+              "_note": "Tueren vom Outdoor, links der Booth"
+            },
+            {
+              "id": "booth_durchbruch",
+              "side": "N",
+              "from": 4.06,
+              "to": 6.5,
+              "y0": 0.0,
+              "y1": 2.4,
+              "kind": "opening",
+              "_note": "Wanddurchbruch zur DJ-Booth-Nische"
+            }
+          ],
+          "stairwell_door": "E",
+          "partitions": [
+            {
+              "id": "club_sued",
+              "axis": "x",
+              "at": 1.95,
+              "from": 2.85,
+              "to": 6.5,
+              "openings": [{"from": 2.9, "to": 4.7, "y0": 0.0, "y1": 2.2, "kind": "door"}]
+            },
+            {
+              "id": "wc_front",
+              "axis": "x",
+              "at": 1.45,
+              "from": 5.0,
+              "to": 6.5,
+              "openings": [{"from": 5.12, "to": 5.72, "y0": 0.0, "y1": 2.0, "kind": "door"}, {"from": 5.93, "to": 6.43, "y0": 0.0, "y1": 2.0, "kind": "door"}]
+            },
+            {"id": "wc_west", "axis": "z", "at": 5.0, "from": 0.3, "to": 1.45, "openings": []},
+            {"id": "wc_mitte", "axis": "z", "at": 5.83, "from": 0.3, "to": 1.45, "openings": []},
+            {"id": "booth_west", "axis": "z", "at": 4.0, "from": 7.3, "to": 8.8, "openings": []},
+            {"id": "booth_ost", "axis": "z", "at": 6.74, "from": 7.3, "to": 8.8, "openings": []},
+            {
+              "id": "booth_nord",
+              "axis": "x",
+              "at": 8.8,
+              "from": 4.0,
+              "to": 6.74,
+              "openings": [],
+              "_note": "Rueckwand der Nische, ca. 1.20 m hinter der Hauswand (im Nachbargebaeude)"
+            }
+          ]
+        }
+      },
+      {
+        "name": "OG1",
+        "role": "Office (Raedli)",
+        "floor_to_floor": 2.8,
+        "_conf": "estimate",
+        "_note": "Offener Office-Grundriss (Raedli). Keine Innenwaende - nur Deckenstuetzen + WC/Bad im Liftschacht. Fotos + Masse folgen.",
+        "plan": {
+          "open_plan": true,
+          "beam_ceiling": true,
+          "_coords": "lokal 0..6.80 / 0..7.60",
+          "rooms": [{"id": "office", "label": "Office / Raedli", "color": [0.36, 0.56, 0.86], "x": 0.3, "z": 0.3, "w": 6.2, "d": 7.0}],
+          "features": [{"id": "kueche_og1", "label": "Kueche", "type": "appliance", "x": 2.95, "z": 0.3, "w": 1.8, "d": 0.6, "h": 0.9, "_conf": "estimate"}],
+          "ext_openings": [
+            {"id": "og1_fenster_e", "side": "E", "from": 1.5, "to": 6.0, "y0": 0.9, "y1": 2.3, "kind": "window"},
+            {"id": "og1_fenster_w", "side": "W", "from": 1.5, "to": 6.0, "y0": 0.9, "y1": 2.3, "kind": "window"}
+          ]
+        }
+      },
+      {
+        "name": "OG2",
+        "role": "Wohnung",
+        "floor_to_floor": 2.8,
+        "_conf": "estimate",
+        "_note": "Wohnung ueber dem Office - fast identischer Grundriss wie OG1, nur Kueche leicht andere Masse.",
+        "plan": {
+          "open_plan": true,
+          "beam_ceiling": true,
+          "_coords": "lokal 0..6.80 / 0..7.60",
+          "rooms": [{"id": "wohnung", "label": "Wohnung", "color": [0.52, 0.8, 0.62], "x": 0.3, "z": 0.3, "w": 6.2, "d": 7.0}],
+          "features": [{"id": "kueche_og2", "label": "Kueche", "type": "appliance", "x": 2.95, "z": 0.3, "w": 2.0, "d": 0.6, "h": 0.9, "_conf": "estimate"}],
+          "ext_openings": [
+            {"id": "og2_fenster_e", "side": "E", "from": 1.5, "to": 6.0, "y0": 0.9, "y1": 2.3, "kind": "window"},
+            {"id": "og2_fenster_w", "side": "W", "from": 1.5, "to": 6.0, "y0": 0.9, "y1": 2.3, "kind": "window"}
+          ]
+        }
+      },
+      {
+        "name": "OG3",
+        "role": "(offen)",
+        "floor_to_floor": 2.8,
+        "_conf": "estimate",
+        "_note": "Programm noch offen. Oberstes Geschoss (keine Treppe nach oben).",
+        "plan": {
+          "open_plan": true,
+          "rooms": [{"id": "og3", "label": "OG3 (offen)", "color": [0.7, 0.72, 0.78], "x": 0.3, "z": 0.3, "w": 6.2, "d": 7.0}],
+          "ext_openings": [
+            {"id": "og3_fenster_e", "side": "E", "from": 1.5, "to": 6.0, "y0": 0.9, "y1": 2.3, "kind": "window"},
+            {"id": "og3_fenster_w", "side": "W", "from": 1.5, "to": 6.0, "y0": 0.9, "y1": 2.3, "kind": "window"}
+          ]
+        }
+      }
+    ],
+    "stairwell": {
+      "x": 0.3,
+      "z": 0.3,
+      "w": 2.55,
+      "d": 1.65,
+      "door": "N",
+      "door_w": 0.8,
+      "_conf": "derived",
+      "_note": "Treppenhaus-Waende (aus CAD: Raum bis x=2.85 / z=1.95). Tuer pro Geschoss ueber plan.stairwell_door."
+    }
+  },
+  "viewer": {"default_view": "aerial", "_note": "aerial = Vogelperspektive. Huelle/Decken/Dach transparent, Detailgeschosse farbig-solide."}
+}

@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Haus - grobes Arbeitsmodell",
-    "revision": 7,
+    "revision": 8,
     "date": "2026-11-20",
     "units": "meters",
     "up_axis": "Y",
@@ -95,20 +95,26 @@
 
       {
         "name": "EG", "role": "Club/Bar", "floor_to_floor": 2.80, "_conf": "estimate",
-        "_note": "Club/Bar ueber dem Keller (CAD-Plan vorhanden, Foto noch zu niedrig aufgeloest fuer exakte Masse). Innenaufteilung + Masse folgen.",
+        "_note": "Club/Bar ueber dem Keller (aus markiertem CAD-Plan). Programm-Positionen aus Markup, Masse noch geschaetzt (Foto zu niedrig aufgeloest).",
         "plan": {
           "open_plan": true,
-          "_coords": "lokal 0..6.80 / 0..7.60 (Fussabdruck noch default-Schaetzung)",
+          "wc_in_shaft": false,
+          "_coords": "lokal 0..6.80 / 0..7.60",
           "rooms": [
-            { "id": "clubbar", "label": "Club / Bar", "color": [0.62, 0.42, 0.80], "x": 0.30, "z": 0.30, "w": 6.20, "d": 7.00 }
+            { "id": "club",    "label": "Club",          "color": [0.62, 0.42, 0.80], "x": 0.30, "z": 2.30, "w": 6.20, "d": 5.00 },
+            { "id": "eg_room", "label": "Room",          "color": [0.52, 0.42, 0.72], "x": 4.60, "z": 4.40, "w": 1.90, "d": 2.90, "_conf": "estimate" },
+            { "id": "outdoor", "label": "Outdoor",       "color": [0.55, 0.78, 0.48], "x": 0.30, "z": 7.60, "w": 6.20, "d": 4.00, "_conf": "estimate" },
+            { "id": "eg_lift", "label": "Lift/Lueftung", "color": [0.80, 0.78, 0.40], "x": 0.30, "z": 0.30, "w": 1.60, "d": 2.00, "_conf": "estimate" },
+            { "id": "wc1",     "label": "WC",            "color": [0.40, 0.80, 0.86], "x": 4.80, "z": 0.30, "w": 0.80, "d": 1.20 },
+            { "id": "wc2",     "label": "WC",            "color": [0.40, 0.80, 0.86], "x": 5.65, "z": 0.30, "w": 0.80, "d": 1.20 }
           ],
           "features": [
-            { "id": "bar", "label": "Bar (ca.)", "type": "appliance", "x": 0.60, "z": 4.20, "w": 2.40, "d": 0.60, "h": 1.10, "_conf": "estimate" }
+            { "id": "bar_a", "label": "Bar", "type": "appliance", "x": 0.60, "z": 3.00, "w": 0.60, "d": 2.60, "h": 1.10, "_conf": "estimate" },
+            { "id": "bar_b", "label": "Bar", "type": "appliance", "x": 0.60, "z": 5.00, "w": 2.00, "d": 0.60, "h": 1.10, "_conf": "estimate" }
           ],
           "ext_openings": [
-            { "id": "eg_eingang", "side": "S", "from": 2.60, "to": 3.90, "y0": 0.00, "y1": 2.20, "kind": "door" }
-          ],
-          "stair": { "id": "treppe_eg", "label": "Treppe", "x": 0.45, "z": 3.50, "w": 1.30, "d": 2.40, "dir": "-z", "_conf": "estimate" }
+            { "id": "eg_eingang", "side": "N", "from": 2.20, "to": 4.60, "y0": 0.00, "y1": 2.20, "kind": "door" }
+          ]
         }
       },
 

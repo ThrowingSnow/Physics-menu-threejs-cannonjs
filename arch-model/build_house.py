@@ -227,10 +227,10 @@ def build(spec):
                 ops = [{**o, "from": oz+o["from"], "to": oz+o["to"]} for o in p.get("openings", [])]
             wall(mb,"Interior","part",MATS["part"], p["axis"], at, fr, to, yb, clear, ti, ops)
         # Raum-Pads
-        for r in plan.get("rooms", []):
+        for ri, r in enumerate(plan.get("rooms", [])):
             mk = "room:"+r["id"]
             mb.box("RoomPads", mk, room_material(r["color"]),
-                   ox+r["x"]+r["w"]/2, yb+0.02, oz+r["z"]+r["d"]/2, r["w"], 0.04, r["d"])
+                   ox+r["x"]+r["w"]/2, yb+0.02+0.004*ri, oz+r["z"]+r["d"]/2, r["w"], 0.04, r["d"])
         # Features (Stuetzen, Geraete)
         for f in plan.get("features", []):
             if f.get("type") == "column":
@@ -242,7 +242,7 @@ def build(spec):
                        ox+f["x"]+f["w"]/2, yb+fh/2, oz+f["z"]+f["d"]/2, f["w"], fh, f["d"])
         # Offener Grundriss: WC/Bad im alten Liftschacht + Deckenstuetzen (Pfeiler)
         if plan.get("open_plan"):
-            if lift:
+            if lift and plan.get("wc_in_shaft", True):
                 wc_in_shaft(mb, ox, oz, lift, yb, clear, ti)
             for c in cols:
                 cw, cd = c.get("w", 0.30), c.get("d", 0.30)
@@ -412,7 +412,7 @@ def plan_png(spec, level_name, out_png):
     # Offener Grundriss: Liftschacht (WC/Bad) + Deckenstuetzen
     if plan.get("open_plan"):
         sh = b.get("lift_shaft")
-        if sh:
+        if sh and plan.get("wc_in_shaft", True):
             sc = sh.get("color", [0.40, 0.80, 0.86])
             ax.add_patch(Rectangle((sh["x"], sh["z"]), sh["w"], sh["d"],
                          facecolor=(sc[0], sc[1], sc[2], 0.55), edgecolor="#333", lw=1.2))

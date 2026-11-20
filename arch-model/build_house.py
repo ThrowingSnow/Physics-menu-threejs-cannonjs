@@ -151,18 +151,36 @@ def spiral_stair_in_rect(mb, ox, oz, rect, base_y, ff):
                  turn=math.pi*float(rect.get("turns", 0.8))*2)
 
 
-def wc_in_shaft(mb, ox, oz, shaft, yb, clear, ti):
-    """Abgetrenntes WC/Bad im alten Liftschacht: 4 Waende (Tuer Sueden) + Pad.
-    shaft in lokalen Geschoss-Koordinaten."""
-    x0, z0, w, d = shaft["x"], shaft["z"], shaft["w"], shaft["d"]
-    door_w = min(0.80, w*0.6); df = x0 + (w-door_w)/2
-    wall(mb,"Interior","part",MATS["part"],"x", oz+z0,   ox+x0, ox+x0+w, yb, clear, ti,
-         [{"from": ox+df, "to": ox+df+door_w, "y0": 0.0, "y1": 2.10}])
-    wall(mb,"Interior","part",MATS["part"],"x", oz+z0+d, ox+x0, ox+x0+w, yb, clear, ti)
-    wall(mb,"Interior","part",MATS["part"],"z", ox+x0,   oz+z0, oz+z0+d, yb, clear, ti)
-    wall(mb,"Interior","part",MATS["part"],"z", ox+x0+w, oz+z0, oz+z0+d, yb, clear, ti)
-    mb.box("RoomPads","room:wc", room_material(shaft.get("color",[0.40,0.80,0.86])),
-           ox+x0+w/2, yb+0.02, oz+z0+d/2, w, 0.04, d)
+def derived_partitions(b, lv):
+    """Waende, die sich aus dem Gebaeudekern ableiten (auf offenen Geschossen):
+    Treppenhaus um die Wendeltreppe + WC/Bad im alten Liftschacht.
+    Seiten, die auf einer Aussenwand liegen, werden weggelassen."""
+    pl = lv.get("plan", {}); parts = []
+    if not pl.get("open_plan"):
+        return parts
+    fw, fd = footprint_of(b, lv); te = b["wall_exterior_thickness"]; eps = 0.02
+
+    def enclose(r, side, pid, door_w, door_pos):
+        x0, z0 = r["x"], r["z"]; x1, z1 = x0 + r["w"], z0 + r["d"]
+        def op(lo, hi):
+            dw = min(door_w, (hi - lo) * 0.7)
+            a = hi - 0.10 - dw if door_pos == "end" else (lo + 0.10 if door_pos == "start" else (lo + hi - dw) / 2)
+            return [{"from": a, "to": a + dw, "y0": 0.0, "y1": 2.10}]
+        out = []
+        if z1 < fd - te - eps: out.append({"id": pid+"_n", "axis": "x", "at": z1, "from": x0, "to": x1, "openings": op(x0, x1) if side == "N" else []})
+        if z0 > te + eps:      out.append({"id": pid+"_s", "axis": "x", "at": z0, "from": x0, "to": x1, "openings": op(x0, x1) if side == "S" else []})
+        if x1 < fw - te - eps: out.append({"id": pid+"_e", "axis": "z", "at": x1, "from": z0, "to": z1, "openings": op(z0, z1) if side == "E" else []})
+        if x0 > te + eps:      out.append({"id": pid+"_w", "axis": "z", "at": x0, "from": z0, "to": z1, "openings": op(z0, z1) if side == "W" else []})
+        return out
+
+    sw = b.get("stairwell")
+    if sw:
+        side = pl.get("stairwell_door", sw.get("door", "N"))
+        parts += enclose(sw, side, "treppenhaus", sw.get("door_w", 0.80), "end" if side in ("N", "S") else "start")
+    lift = b.get("lift_shaft")
+    if lift and pl.get("wc_in_shaft", True):
+        parts += enclose(lift, lift.get("door", "N"), "wc", 0.70, "center")
+    return parts
 
 
 # ===========================================================================
@@ -192,6 +210,9 @@ def build(spec):
 
     def offset(lv):                      # Welt-Koordinate der lokalen (0,0)-Ecke
         fw, fd = footprint_of(b, lv)
+        fp = lv.get("footprint") or {}
+        if "x0" in fp and "z0" in fp:    # explizit platziert (z.B. Keller unter dem Treppenkern)
+            return (fp["x0"], fp["z0"], fw, fd)
         return (Cx - fw/2, Cz - fd/2, fw, fd)
 
     # ---- Waende, Innenwaende, Raeume, Features, Treppen pro Geschoss ----
@@ -217,8 +238,8 @@ def build(spec):
         wall(mb,"Shell","shell",mat,"z", ox+fw-te/2,  oz, oz+fd, y0, h, te, shift("E", exo.get("E")))
 
         yb = y0 + st; clear = h - st
-        # Innenwaende
-        for p in plan.get("partitions", []):
+        # Innenwaende (aus dem Plan + Treppenhaus/WC-Schacht aus dem Kern)
+        for p in plan.get("partitions", []) + derived_partitions(b, lv):
             if p["axis"] == "x":
                 at = oz + p["at"]; fr, to = ox+p["from"], ox+p["to"]
                 ops = [{**o, "from": ox+o["from"], "to": ox+o["to"]} for o in p.get("openings", [])]
@@ -243,7 +264,8 @@ def build(spec):
         # Offener Grundriss: WC/Bad im alten Liftschacht + Deckenstuetzen (Pfeiler)
         if plan.get("open_plan"):
             if lift and plan.get("wc_in_shaft", True):
-                wc_in_shaft(mb, ox, oz, lift, yb, clear, ti)
+                mb.box("RoomPads", "room:wc", room_material(lift.get("color", [0.40, 0.80, 0.86])),
+                       ox+lift["x"]+lift["w"]/2, yb+0.06, oz+lift["z"]+lift["d"]/2, lift["w"], 0.04, lift["d"])
             for c in cols:
                 cw, cd = c.get("w", 0.30), c.get("d", 0.30)
                 mb.box("Features","column",MATS["column"],
@@ -394,7 +416,7 @@ def plan_png(spec, level_name, out_png):
         ax.text(r["x"]+r["w"]/2, r["z"]+r["d"]/2, r["label"], ha="center", va="center",
                 fontsize=8, color="#222")
     # Innenwaende (mit Oeffnungen als Luecken)
-    for p in plan.get("partitions", []):
+    for p in plan.get("partitions", []) + derived_partitions(b, lv):
         ops = sorted(p.get("openings", []), key=lambda o: o["from"])
         cur = p["from"]; segs = []
         for o in ops:
@@ -474,18 +496,24 @@ def _overlap(a, c):
             a["z"] < c["z"]+c["d"] and a["z"]+a["d"] > c["z"])
 
 def check_collisions(spec):
-    """Warnt, wenn Features (Bar, Geraete, Stuetzen) die Treppe oder den WC-Schacht schneiden."""
-    b = spec["building"]; sc = b.get("stair_core"); lift = b.get("lift_shaft"); warns = []
+    """Warnt, wenn Bar/Geraete/Stuetzen in Treppe, Treppenhaus oder WC-Schacht ragen."""
+    b = spec["building"]; warns = []
     for lv in b["levels"]:
-        pl = lv.get("plan", {})
-        core = sc if pl.get("open_plan") else pl.get("stair")
-        for f in pl.get("features", []):
-            if core and _overlap(f, core):
-                warns.append("%-4s Feature '%s' ueberlappt die Treppe" % (lv["name"], f.get("label", f.get("id"))))
-            if lift and pl.get("open_plan") and pl.get("wc_in_shaft", True) and _overlap(f, lift):
-                warns.append("%-4s Feature '%s' ueberlappt WC/Liftschacht" % (lv["name"], f.get("label", f.get("id"))))
+        pl = lv.get("plan", {}); open_ = pl.get("open_plan")
+        zones = []
+        core = b.get("stair_core") if open_ else pl.get("stair")
+        if core: zones.append(("Treppe", core))
+        if open_ and b.get("stairwell"): zones.append(("Treppenhaus", b["stairwell"]))
+        if open_ and b.get("lift_shaft") and pl.get("wc_in_shaft", True): zones.append(("WC/Liftschacht", b["lift_shaft"]))
+        objs = [(f.get("label", f.get("id")), f) for f in pl.get("features", [])]
+        if open_:
+            objs += [("Stuetze", {"x": c["x"], "z": c["z"], "w": c.get("w", 0.30), "d": c.get("d", 0.30)}) for c in b.get("columns", [])]
+        for oname, o in objs:
+            for zname, z in zones:
+                if _overlap(o, z):
+                    warns.append("%-4s %s ragt in %s" % (lv["name"], oname, zname))
     if warns:
-        print("  ! KOLLISIONEN:");  [print("    - " + w) for w in warns]
+        print("  ! KOLLISIONEN:"); [print("    - " + w) for w in warns]
     else:
         print("  Kollisionen:            keine")
 

@@ -74,8 +74,20 @@ python3 -m http.server 8000
 `R` Dach · `G` Hülle · `F` neu einpassen · `T` Draufsicht.
 Bauteile rechts einzeln ein-/ausblenden.
 
-Der Viewer lädt Three.js (0.160.0) per CDN — für eine Offline-/Deploy-Variante
-sag Bescheid, dann vendoren wir Three.js lokal ins Repo rein.
+Der Viewer lädt Three.js (0.160.0) per CDN.
+
+### Teilbarer Viewer (GLB eingebettet, ein File)
+
+Für einen Viewer, der ohne Server/Dateien überall läuft (z. B. als Link):
+
+```bash
+python3 build_house.py --artifact viewer_standalone.html
+```
+
+Erzeugt aus `viewer/standalone.template.html` + `house.glb` eine self-contained
+HTML-Seite (GLB als data-URI eingebettet). Diese Variante hat zusätzlich feste
+**Ansichten** (`1`–`6`: Front / Hinten / Links / Rechts / Oben / ISO) und einen
+**`U` = UI aus**-Modus für saubere Markup-Screenshots.
 
 ---
 

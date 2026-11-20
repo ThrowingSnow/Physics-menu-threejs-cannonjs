@@ -357,6 +357,25 @@ def plan_png(spec, level_name, out_png):
     print("  Grundriss %-4s ->      %s" % (lv["name"], out_png))
 
 
+def build_artifact(spec, glb_path, template_path, out_path):
+    """Self-contained Viewer-HTML (GLB eingebettet) aus dem Template erzeugen."""
+    import base64
+    tpl = open(template_path, encoding="utf-8").read()
+    b64 = base64.b64encode(open(glb_path, "rb").read()).decode()
+    leg = []
+    for lv in spec["building"]["levels"]:
+        rooms = (lv.get("plan") or {}).get("rooms") or []
+        if rooms:
+            leg.append({"name": lv["name"], "role": lv.get("role", ""),
+                        "rooms": [{"label": r["label"], "color": r["color"]} for r in rooms]})
+    out = (tpl.replace("__REV__", str(spec["meta"]["revision"]))
+              .replace("__DATE__", spec["meta"]["date"])
+              .replace("/*__LEGEND__*/ []", json.dumps(leg, ensure_ascii=False))
+              .replace("__GLB_B64__", b64))
+    open(out_path, "w", encoding="utf-8").write(out)
+    print("  Artifact-HTML ->        %s (%d kB)" % (out_path, len(out)//1024))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in",  dest="inp", default=os.path.join(HERE, "house.json"))
@@ -364,6 +383,9 @@ def main():
     ap.add_argument("--preview", dest="preview", default=None)
     ap.add_argument("--plan", dest="plan", default=None, help="Geschossname, z.B. UG")
     ap.add_argument("--planout", dest="planout", default=None)
+    ap.add_argument("--artifact", dest="artifact", default=None, help="Pfad fuer self-contained Viewer-HTML")
+    ap.add_argument("--template", dest="template",
+                    default=os.path.join(HERE, "viewer", "standalone.template.html"))
     args = ap.parse_args()
     with open(args.inp, encoding="utf-8") as f: spec = json.load(f)
     mb, dims = build(spec)
@@ -375,6 +397,8 @@ def main():
     if args.preview: preview(mb, args.preview, dims)
     if args.plan:
         plan_png(spec, args.plan, args.planout or os.path.join(HERE, "plan_%s.png" % args.plan))
+    if args.artifact:
+        build_artifact(spec, args.out, args.template, args.artifact)
 
 if __name__ == "__main__":
     main()

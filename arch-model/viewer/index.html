@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Haus - Vogelperspektive</title>
+<style>
+  :root { --bg:#101216; --fg:#e8eaed; --dim:#8b9099; --line:#2a2e36; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow:hidden; }
+  #app { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  .panel { position:fixed; background:rgba(16,18,22,.78); border:1px solid var(--line);
+    border-radius:10px; backdrop-filter:blur(8px); padding:12px 14px; font-size:12px; line-height:1.5; }
+  #hud { top:16px; left:16px; max-width:260px; }
+  #hud h1 { margin:0 0 2px; font-size:13px; letter-spacing:.3px; }
+  #hud .rev { color:var(--dim); font-size:11px; margin-bottom:8px; }
+  #legend { margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
+  #legend .row { display:flex; align-items:center; gap:8px; }
+  #legend .sw { width:11px; height:11px; border-radius:2px; flex:none; }
+
+  #ctrl { bottom:16px; left:16px; color:var(--dim); }
+  #ctrl b { color:var(--fg); font-weight:600; }
+  #ctrl .k { color:var(--fg); background:#1c1f26; border:1px solid var(--line);
+    border-radius:4px; padding:1px 6px; }
+
+  #toggles { top:16px; right:16px; display:flex; flex-direction:column; gap:6px; }
+  #toggles button { font:inherit; font-size:11px; color:var(--fg); cursor:pointer;
+    background:#1a1d24; border:1px solid var(--line); border-radius:7px; padding:7px 10px; text-align:left; }
+  #toggles button[aria-pressed="false"] { color:var(--dim); opacity:.55; }
+  #toggles button:hover { border-color:#3a4150; }
+
+  #loading { position:fixed; inset:0; display:grid; place-items:center; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud" class="panel">
+  <h1>Haus &mdash; Arbeitsmodell</h1>
+  <div class="rev" id="rev">lade&hellip;</div>
+  <div id="legendWrap" style="display:none">
+    <div style="color:var(--dim)">Detailgeschoss (<span id="detName">&mdash;</span>)</div>
+    <div id="legend"></div>
+  </div>
+</div>
+
+<div id="toggles" class="panel" style="padding:8px">
+  <button data-group="Roof"     aria-pressed="true">Dach</button>
+  <button data-group="Shell"    aria-pressed="true">H&uuml;lle (Aussenw&auml;nde)</button>
+  <button data-group="Slabs"    aria-pressed="true">Geschossdecken</button>
+  <button data-group="Stairs"   aria-pressed="true">Treppen</button>
+  <button data-group="Interior" aria-pressed="true">Innenw&auml;nde</button>
+  <button data-group="RoomPads" aria-pressed="true">R&auml;ume (Farbe)</button>
+</div>
+
+<div id="ctrl" class="panel">
+  <b>Ziehen</b> drehen &nbsp;&middot;&nbsp; <b>Scroll</b> zoomen &nbsp;&middot;&nbsp; <b>Rechts-Ziehen</b> schieben<br>
+  <span class="k">R</span> Dach &nbsp; <span class="k">G</span> H&uuml;lle &nbsp; <span class="k">F</span> neu einpassen &nbsp; <span class="k">T</span> Draufsicht
+</div>
+
+<div id="loading">lade Modell&hellip;</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+
+const app = document.getElementById('app');
+
+// --- Renderer / Szene / Kamera ---------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.sortObjects = true;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#101216');
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 500);
+
+// --- Licht ------------------------------------------------------------------
+scene.add(new THREE.HemisphereLight('#dfe7f2', '#20242c', 1.15));
+const sun = new THREE.DirectionalLight('#fff4e0', 1.5);
+sun.position.set(6, 14, 4);
+scene.add(sun);
+const fill = new THREE.DirectionalLight('#cfe0ff', 0.5);
+fill.position.set(-8, 5, -6);
+scene.add(fill);
+
+// Bodenraster
+const grid = new THREE.GridHelper(60, 60, 0x2a2e36, 0x1b1e24);
+grid.position.y = -0.01;
+scene.add(grid);
+
+// --- Controls ---------------------------------------------------------------
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.49;   // nicht unter den Boden
+
+// --- Modell laden -----------------------------------------------------------
+const groups = {};               // name -> Object3D
+let modelBox = new THREE.Box3();
+
+new GLTFLoader().load('../house.glb', (gltf) => {
+  const root = gltf.scene;
+
+  root.traverse((o) => {
+    if (o.isMesh && o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        if (m.transparent || (m.opacity !== undefined && m.opacity < 1)) {
+          m.depthWrite = false;      // ruhigere Transparenz
+          m.transparent = true;
+        }
+        m.side = THREE.DoubleSide;
+      });
+    }
+    if (o.name) groups[o.name] = o;
+  });
+
+  scene.add(root);
+  modelBox.setFromObject(root);
+  frame(true);
+  document.getElementById('loading').style.display = 'none';
+}, undefined, (err) => {
+  document.getElementById('loading').innerHTML =
+    'Konnte <b>house.glb</b> nicht laden.<br>Bitte ueber einen lokalen Server oeffnen:<br>' +
+    '<code>cd arch-model &amp;&amp; python3 -m http.server</code><br>dann http://localhost:8000/viewer/';
+  console.error(err);
+});
+
+// --- Kamera auf das Haus einpassen -----------------------------------------
+function frame(aerial) {
+  const c = modelBox.getCenter(new THREE.Vector3());
+  const s = modelBox.getSize(new THREE.Vector3());
+  const r = Math.max(s.x, s.y, s.z);
+  controls.target.copy(c);
+  if (aerial) {                                   // Vogelperspektive, schraeg von oben
+    camera.position.set(c.x + r*1.1, c.y + r*1.25, c.z + r*1.35);
+  }
+  camera.near = r/100; camera.far = r*20; camera.updateProjectionMatrix();
+}
+function topView() {
+  const c = modelBox.getCenter(new THREE.Vector3());
+  const s = modelBox.getSize(new THREE.Vector3());
+  controls.target.copy(c);
+  camera.position.set(c.x+0.001, c.y + Math.max(s.x,s.z)*2.2, c.z);
+}
+
+// --- Gruppen-Toggles --------------------------------------------------------
+function setGroup(name, on) {
+  if (groups[name]) groups[name].visible = on;
+  const btn = document.querySelector(`#toggles button[data-group="${name}"]`);
+  if (btn) btn.setAttribute('aria-pressed', String(on));
+}
+document.querySelectorAll('#toggles button').forEach((b) => {
+  b.addEventListener('click', () => {
+    const name = b.dataset.group;
+    setGroup(name, b.getAttribute('aria-pressed') !== 'true');
+  });
+});
+
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'r') setGroup('Roof',  !groups['Roof']?.visible);
+  if (k === 'g') setGroup('Shell', !groups['Shell']?.visible);
+  if (k === 'f') frame(true);
+  if (k === 't') topView();
+});
+
+// --- Legende / Revision aus house.json --------------------------------------
+fetch('../house.json').then(r => r.json()).then((spec) => {
+  document.getElementById('rev').textContent =
+    'Rev ' + spec.meta.revision + ' · ' + spec.meta.date + ' · Meter';
+  const det = spec.detail_floor;
+  const lvl = spec.building.levels[det.level_index];
+  document.getElementById('detName').textContent = lvl ? lvl.name : ('#' + det.level_index);
+  const leg = document.getElementById('legend');
+  det.rooms.forEach((rm) => {
+    const col = `rgb(${rm.color.map(v=>Math.round(v*255)).join(',')})`;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<span class="sw" style="background:${col}"></span>${rm.label}`;
+    leg.appendChild(row);
+  });
+  document.getElementById('legendWrap').style.display = 'block';
+}).catch(()=>{});
+
+// --- Loop / Resize ----------------------------------------------------------
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+(function tick(){ requestAnimationFrame(tick); controls.update(); renderer.render(scene, camera); })();
+</script>
+</body>
+</html>

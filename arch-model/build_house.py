@@ -302,11 +302,68 @@ def preview(mb, out_png, dims):
     fig.tight_layout(pad=0); fig.savefig(out_png, dpi=110, facecolor="#101216")
     print("  Vorschau:               %s" % out_png)
 
+def plan_png(spec, level_name, out_png):
+    """2D-Grundriss eines Geschosses von oben (zum Abgleich mit der Handskizze)."""
+    import matplotlib; matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    b = spec["building"]; te = b["wall_exterior_thickness"]; ti = b["wall_interior_thickness"]
+    lv = next((l for l in b["levels"] if l["name"].lower() == level_name.lower()), None)
+    if lv is None:
+        print("  Kein Geschoss '%s'." % level_name); return
+    fw, fd = footprint_of(b, lv); plan = lv.get("plan", {})
+    fig, ax = plt.subplots(figsize=(6, 6*fd/fw if fw else 6), facecolor="white")
+    # Aussenwand (Ring) + Innenraum
+    ax.add_patch(Rectangle((0,0), fw, fd, facecolor="#cfd3da", edgecolor="#333", lw=1.5))
+    ax.add_patch(Rectangle((te,te), fw-2*te, fd-2*te, facecolor="white", edgecolor="none"))
+    # Raeume
+    for r in plan.get("rooms", []):
+        ax.add_patch(Rectangle((r["x"], r["z"]), r["w"], r["d"],
+                     facecolor=(r["color"][0], r["color"][1], r["color"][2], 0.35), edgecolor="none"))
+        ax.text(r["x"]+r["w"]/2, r["z"]+r["d"]/2, r["label"], ha="center", va="center",
+                fontsize=8, color="#222")
+    # Innenwaende (mit Oeffnungen als Luecken)
+    for p in plan.get("partitions", []):
+        ops = sorted(p.get("openings", []), key=lambda o: o["from"])
+        cur = p["from"]; segs = []
+        for o in ops:
+            if o["from"] > cur: segs.append((cur, o["from"]))
+            cur = o["to"]
+        segs.append((cur, p["to"]))
+        for a, c in segs:
+            if p["axis"] == "z": ax.add_patch(Rectangle((p["at"]-ti/2, a), ti, c-a, facecolor="#444"))
+            else:                ax.add_patch(Rectangle((a, p["at"]-ti/2), c-a, ti, facecolor="#444"))
+    # Features
+    for f in plan.get("features", []):
+        col = "#555" if f.get("type") == "column" else "#9aa0ab"
+        ax.add_patch(Rectangle((f["x"], f["z"]), f["w"], f["d"], facecolor=col, edgecolor="#222", lw=0.6))
+        ax.text(f["x"]+f["w"]/2, f["z"]+f["d"]+0.08, f["label"], ha="center", va="bottom", fontsize=6, color="#444")
+    # Treppe
+    s = plan.get("stair")
+    if s:
+        ax.add_patch(Rectangle((s["x"], s["z"]), s["w"], s["d"], facecolor="none",
+                     edgecolor="#333", lw=1.0, hatch="///"))
+        ax.text(s["x"]+s["w"]/2, s["z"]+s["d"]/2, s.get("label","Treppe"), ha="center", va="center",
+                fontsize=6, color="#333", rotation=90)
+    # Masslinien (innen)
+    iw, idp = fw-2*te, fd-2*te
+    ax.annotate("", (te, -0.25), (fw-te, -0.25), arrowprops=dict(arrowstyle="<->", color="#c00"))
+    ax.text(fw/2, -0.45, "%.0f" % (iw*100), ha="center", color="#c00", fontsize=9)
+    ax.annotate("", (-0.25, te), (-0.25, fd-te), arrowprops=dict(arrowstyle="<->", color="#c00"))
+    ax.text(-0.5, fd/2, "%.0f" % (idp*100), va="center", ha="center", color="#c00", fontsize=9, rotation=90)
+    ax.set_xlim(-0.8, fw+0.3); ax.set_ylim(-0.8, fd+0.3); ax.set_aspect("equal")
+    ax.set_title("%s  %s  (innen %.2f x %.2f m)" % (lv["name"], lv.get("role",""), iw, idp), fontsize=10)
+    ax.axis("off"); fig.tight_layout(); fig.savefig(out_png, dpi=120, facecolor="white")
+    print("  Grundriss %-4s ->      %s" % (lv["name"], out_png))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in",  dest="inp", default=os.path.join(HERE, "house.json"))
     ap.add_argument("--out", dest="out", default=os.path.join(HERE, "house.glb"))
     ap.add_argument("--preview", dest="preview", default=None)
+    ap.add_argument("--plan", dest="plan", default=None, help="Geschossname, z.B. UG")
+    ap.add_argument("--planout", dest="planout", default=None)
     args = ap.parse_args()
     with open(args.inp, encoding="utf-8") as f: spec = json.load(f)
     mb, dims = build(spec)
@@ -316,6 +373,8 @@ def main():
           % (nbytes//1024, nmesh, nprim, len(mb.materials)))
     report(spec, dims)
     if args.preview: preview(mb, args.preview, dims)
+    if args.plan:
+        plan_png(spec, args.plan, args.planout or os.path.join(HERE, "plan_%s.png" % args.plan))
 
 if __name__ == "__main__":
     main()

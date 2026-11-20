@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Haus - grobes Arbeitsmodell",
-    "revision": 2,
+    "revision": 3,
     "date": "2026-11-20",
     "units": "meters",
     "up_axis": "Y",
@@ -21,7 +21,7 @@
     "default_footprint": {
       "width_x": 6.80, "depth_z": 7.60,
       "_conf": "estimate",
-      "_note": "Fussabdruck der Obergeschosse - noch geschaetzt. OFFEN: ist das ganze Haus so schmal wie der Keller (3.50 m) oder ist der Keller nur ein Teil-Untergeschoss?"
+      "_note": "Fussabdruck der Obergeschosse - noch geschaetzt. Bestaetigt: Keller ist ein Teil-Untergeschoss, Obergeschosse sind breiter (Variante B)."
     },
     "roof": {
       "type": "gable", "ridge_axis": "z", "height": 2.40, "overhang": 0.40,
@@ -40,15 +40,16 @@
         "plan": {
           "_coords": "lokal, 0..width / 0..depth; Innenkante Wand bei 0.30",
           "partitions": [
-            { "id": "heiz_wand", "axis": "z", "at": 2.30, "from": 0.30, "to": 3.60,
+            { "id": "heiz_wand", "axis": "z", "at": 2.50, "from": 0.30, "to": 6.20,
               "_conf": "estimate",
-              "openings": [ { "from": 2.60, "to": 3.40, "y0": 0.0, "y1": 2.00, "kind": "door" } ] }
+              "_note": "Heizung/Lueftung = voller Oststreifen ueber die ganze Tiefe (lt. roter Markierung). Streifenbreite geschaetzt.",
+              "openings": [ { "from": 2.80, "to": 3.60, "y0": 0.0, "y1": 2.00, "kind": "door" } ] }
           ],
           "rooms": [
             { "id": "keller",  "label": "Keller",           "color": [0.56, 0.60, 0.68],
-              "x": 0.30, "z": 0.30, "w": 3.50, "d": 5.90 },
+              "x": 0.30, "z": 0.30, "w": 2.20, "d": 5.90 },
             { "id": "heizung", "label": "Heizung/Lueftung", "color": [0.90, 0.55, 0.30],
-              "x": 2.30, "z": 0.30, "w": 1.50, "d": 3.30, "_conf": "estimate" }
+              "x": 2.50, "z": 0.30, "w": 1.30, "d": 5.90, "_conf": "estimate" }
           ],
           "features": [
             { "id": "stuetze", "label": "Stuetze 50x50", "type": "column",
@@ -60,7 +61,7 @@
           ],
           "ext_openings": [],
           "stair": { "id": "treppe_ug", "label": "Treppe nach oben",
-            "x": 2.55, "z": 3.60, "w": 0.95, "d": 2.60, "dir": "+z", "_conf": "estimate" }
+            "x": 0.45, "z": 3.50, "w": 1.30, "d": 2.40, "dir": "-z", "_conf": "estimate" }
         }
       },
 

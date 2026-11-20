@@ -42,7 +42,7 @@
   <h1>Haus &mdash; Arbeitsmodell</h1>
   <div class="rev" id="rev">lade&hellip;</div>
   <div id="legendWrap" style="display:none">
-    <div style="color:var(--dim)">Detailgeschoss (<span id="detName">&mdash;</span>)</div>
+    <div style="color:var(--dim)">Grundrisse</div>
     <div id="legend"></div>
   </div>
 </div>
@@ -53,6 +53,7 @@
   <button data-group="Slabs"    aria-pressed="true">Geschossdecken</button>
   <button data-group="Stairs"   aria-pressed="true">Treppen</button>
   <button data-group="Interior" aria-pressed="true">Innenw&auml;nde</button>
+  <button data-group="Features" aria-pressed="true">St&uuml;tzen / Ger&auml;te</button>
   <button data-group="RoomPads" aria-pressed="true">R&auml;ume (Farbe)</button>
 </div>
 
@@ -189,16 +190,22 @@ addEventListener('keydown', (e) => {
 fetch('../house.json').then(r => r.json()).then((spec) => {
   document.getElementById('rev').textContent =
     'Rev ' + spec.meta.revision + ' · ' + spec.meta.date + ' · Meter';
-  const det = spec.detail_floor;
-  const lvl = spec.building.levels[det.level_index];
-  document.getElementById('detName').textContent = lvl ? lvl.name : ('#' + det.level_index);
   const leg = document.getElementById('legend');
-  det.rooms.forEach((rm) => {
-    const col = `rgb(${rm.color.map(v=>Math.round(v*255)).join(',')})`;
-    const row = document.createElement('div');
-    row.className = 'row';
-    row.innerHTML = `<span class="sw" style="background:${col}"></span>${rm.label}`;
-    leg.appendChild(row);
+  const levels = (spec.building && spec.building.levels) || [];
+  levels.forEach((lvl) => {
+    const rooms = (lvl.plan && lvl.plan.rooms) || [];
+    if (!rooms.length) return;
+    const head = document.createElement('div');
+    head.style.cssText = 'color:var(--dim);margin-top:6px;font-size:11px';
+    head.textContent = lvl.name + (lvl.role ? ' · ' + lvl.role : '');
+    leg.appendChild(head);
+    rooms.forEach((rm) => {
+      const col = `rgb(${rm.color.map(v=>Math.round(v*255)).join(',')})`;
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<span class="sw" style="background:${col}"></span>${rm.label}`;
+      leg.appendChild(row);
+    });
   });
   document.getElementById('legendWrap').style.display = 'block';
 }).catch(()=>{});

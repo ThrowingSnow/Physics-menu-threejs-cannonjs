@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "Haus - grobes Arbeitsmodell",
-    "revision": 10,
+    "revision": 11,
     "date": "2026-11-20",
     "units": "meters",
     "up_axis": "Y",
@@ -62,38 +62,60 @@
         "floor_to_floor": 2.4,
         "_conf_height": "estimate",
         "footprint": {
-          "width_x": 4.1,
-          "depth_z": 6.5,
-          "_conf": "derived",
-          "_note": "Innen 3.50 x 5.90 lt. Skizze. Unter der Westseite (SW) platziert, damit die Treppe unter dem Treppenhaus liegt. OFFEN: Orientierung der Skizze bestaetigen.",
+          "width_x": 6.8,
+          "depth_z": 8.32,
           "x0": 0.0,
-          "z0": 0.0
+          "z0": 0.0,
+          "_conf": "derived",
+          "_note": "Innen 6.20 breit (= Hausbreite). Tiefe: Band 1.70 (Sueden, unter EG-Serviceband) + Wand + Keller 5.90 = 7.72 innen. Ragt damit ~0.7 m unter die Outdoor-Terrasse (oder die 5.90 sind etwas weniger). Handskizze ist 180 Grad zum Haus gedreht."
         },
         "plan": {
-          "_coords": "lokal, 0..width / 0..depth; Innenkante Wand bei 0.30",
+          "_coords": "lokal = Welt (Keller an SW-Ecke). Norden (+z) = Outdoor-Seite. Skizze des Users ist dazu 180 Grad gedreht.",
           "partitions": [
+            {
+              "id": "band_nord",
+              "axis": "x",
+              "at": 2.06,
+              "from": 0.3,
+              "to": 6.5,
+              "_note": "Wand zwischen Band (Sued) und Keller",
+              "openings": [
+                {"from": 3.5, "to": 4.3, "y0": 0.0, "y1": 2.0, "kind": "door", "_note": "Keller -> Vorraum/Alk-Lager"},
+                {"from": 5.25, "to": 6.05, "y0": 0.0, "y1": 2.0, "kind": "door", "_note": "Keller -> Kuehlzelle"}
+              ]
+            },
+            {
+              "id": "treppe_ost",
+              "axis": "z",
+              "at": 2.94,
+              "from": 0.3,
+              "to": 2.0,
+              "openings": [{"from": 0.45, "to": 1.25, "y0": 0.0, "y1": 2.0, "kind": "door"}]
+            },
+            {"id": "kuehl_west", "axis": "z", "at": 4.89, "from": 0.3, "to": 2.0, "openings": []},
             {
               "id": "heiz_wand",
               "axis": "z",
-              "at": 2.5,
-              "from": 0.3,
-              "to": 6.2,
-              "_conf": "estimate",
-              "_note": "Heizung/Lueftung = voller Oststreifen ueber die ganze Tiefe (lt. roter Markierung). Streifenbreite geschaetzt.",
-              "openings": [{"from": 2.8, "to": 3.6, "y0": 0.0, "y1": 2.0, "kind": "door"}]
+              "at": 2.94,
+              "from": 2.12,
+              "to": 8.02,
+              "openings": [{"from": 2.45, "to": 3.25, "y0": 0.0, "y1": 2.0, "kind": "door", "_note": "Tuer Heizung, am Band-Ende (Markup)"}]
             }
           ],
           "rooms": [
-            {"id": "keller", "label": "Keller", "color": [0.56, 0.6, 0.68], "x": 0.3, "z": 0.3, "w": 2.2, "d": 5.9},
-            {"id": "heizung", "label": "Heizung/Lueftung", "color": [0.9, 0.55, 0.3], "x": 2.5, "z": 0.3, "w": 1.3, "d": 5.9, "_conf": "estimate"}
+            {"id": "keller", "label": "Keller", "color": [0.56, 0.6, 0.68], "x": 3.0, "z": 2.12, "w": 3.5, "d": 5.9},
+            {"id": "heizung", "label": "Heizung/Lueftung", "color": [0.9, 0.55, 0.3], "x": 0.3, "z": 2.12, "w": 2.58, "d": 5.9},
+            {"id": "ug_treppe", "label": "Treppe -> Bar", "color": [0.95, 0.76, 0.3], "x": 0.3, "z": 0.3, "w": 2.58, "d": 1.7},
+            {"id": "alklager", "label": "Alk-Lager", "color": [0.8, 0.55, 0.75], "x": 3.0, "z": 0.3, "w": 1.83, "d": 1.7},
+            {"id": "kuehlzelle", "label": "Kuehlzelle", "color": [0.65, 0.85, 0.95], "x": 4.95, "z": 0.3, "w": 1.55, "d": 1.7}
           ],
           "features": [
-            {"id": "stuetze", "label": "Stuetze 50x50", "type": "column", "x": 0.3, "z": 2.7, "w": 0.5, "d": 0.5, "_conf": "estimate"},
-            {"id": "wama", "label": "Waschmaschine", "type": "appliance", "x": 0.9, "z": 5.6, "w": 0.6, "d": 0.6, "h": 0.85, "_conf": "estimate"},
-            {"id": "tumbler", "label": "Tumbler", "type": "appliance", "x": 1.6, "z": 5.6, "w": 0.6, "d": 0.6, "h": 0.85, "_conf": "estimate"}
+            {"id": "stuetze", "label": "Stuetze 50x50", "type": "column", "x": 6.0, "z": 5.12, "w": 0.5, "d": 0.5, "_conf": "estimate"},
+            {"id": "wama", "label": "Waschmaschine", "type": "appliance", "x": 5.3, "z": 7.42, "w": 0.6, "d": 0.6, "h": 0.85, "_conf": "estimate"},
+            {"id": "tumbler", "label": "Tumbler", "type": "appliance", "x": 4.6, "z": 7.42, "w": 0.6, "d": 0.6, "h": 0.85, "_conf": "estimate"}
           ],
           "ext_openings": [],
-          "stair": {"id": "treppe_ug", "label": "Treppe nach oben", "x": 0.6, "z": 0.3, "w": 1.6, "d": 1.6, "type": "spiral", "_conf": "derived"}
+          "stair": {"id": "treppe_ug", "label": "Treppe nach oben (Bar)", "x": 0.6, "z": 0.3, "w": 1.6, "d": 1.6, "type": "spiral", "_conf": "derived"}
         }
       },
       {

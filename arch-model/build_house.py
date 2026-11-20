@@ -395,7 +395,7 @@ def preview(mb, out_png, dims):
     fig.tight_layout(pad=0); fig.savefig(out_png, dpi=110, facecolor="#101216")
     print("  Vorschau:               %s" % out_png)
 
-def plan_png(spec, level_name, out_png):
+def plan_png(spec, level_name, out_png, rot180=False):
     """2D-Grundriss eines Geschosses von oben (zum Abgleich mit der Handskizze)."""
     import matplotlib; matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -467,7 +467,14 @@ def plan_png(spec, level_name, out_png):
     ax.annotate("", (-0.25, te), (-0.25, fd-te), arrowprops=dict(arrowstyle="<->", color="#c00"))
     ax.text(-0.5, fd/2, "%.0f" % (idp*100), va="center", ha="center", color="#c00", fontsize=9, rotation=90)
     ax.set_xlim(-0.8, fw+0.3); ax.set_ylim(-0.8, fd+0.3); ax.set_aspect("equal")
-    ax.set_title("%s  %s  (innen %.2f x %.2f m)" % (lv["name"], lv.get("role",""), iw, idp), fontsize=10)
+    # Nordpfeil (Norden = Outdoor-Seite, +z)
+    nx, nz = fw + 0.05, fd - 0.2
+    ax.annotate("", (nx, nz), (nx, nz - 0.6), arrowprops=dict(arrowstyle="-|>", color="#333", lw=1.2))
+    ax.text(nx, nz + 0.08, "N", ha="center", va="bottom", fontsize=9, fontweight="bold", color="#333")
+    if rot180:
+        ax.invert_xaxis(); ax.invert_yaxis()
+    ax.set_title("%s  %s  (innen %.2f x %.2f m)%s" % (lv["name"], lv.get("role",""), iw, idp,
+                 "\n180 Grad gedreht - wie deine Skizze" if rot180 else ""), fontsize=10)
     ax.axis("off"); fig.tight_layout(); fig.savefig(out_png, dpi=120, facecolor="white")
     print("  Grundriss %-4s ->      %s" % (lv["name"], out_png))
 
@@ -525,6 +532,7 @@ def main():
     ap.add_argument("--preview", dest="preview", default=None)
     ap.add_argument("--plan", dest="plan", default=None, help="Geschossname, z.B. UG")
     ap.add_argument("--planout", dest="planout", default=None)
+    ap.add_argument("--rot180", action="store_true", help="2D-Plan um 180 Grad gedreht (Skizzen-Orientierung)")
     ap.add_argument("--artifact", dest="artifact", default=None, help="Pfad fuer self-contained Viewer-HTML")
     ap.add_argument("--template", dest="template",
                     default=os.path.join(HERE, "viewer", "standalone.template.html"))
@@ -539,7 +547,7 @@ def main():
     check_collisions(spec)
     if args.preview: preview(mb, args.preview, dims)
     if args.plan:
-        plan_png(spec, args.plan, args.planout or os.path.join(HERE, "plan_%s.png" % args.plan))
+        plan_png(spec, args.plan, args.planout or os.path.join(HERE, "plan_%s.png" % args.plan), args.rot180)
     if args.artifact:
         build_artifact(spec, args.out, args.template, args.artifact)
 

@@ -1,0 +1,337 @@
+<title>Haus Arbeitsmodell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: Vollbild-3D-Canvas mit aufklappbaren HUD-Fenstern (bewusst dunkel, Single-Theme).
+     Handy: Fenster starten zugeklappt, immer nur eins offen. Platzhalter-Tokens ersetzt build_house.py --artifact. */
+  :root{
+    --bg:#0f1116; --fg:#e8eaed; --dim:#8b9099; --line:#272b33;
+    --panel:rgba(16,18,22,.86); --btn:#1a1d24; --accent:#6ea8fe;
+    color-scheme: dark;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --gap:12px;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--mono);overflow:hidden}
+  #app{position:fixed;inset:0}
+  canvas{display:block;touch-action:none}
+
+  .panel{position:fixed;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-size:12px;line-height:1.5;
+    max-height:calc(100% - 2*var(--gap) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 60px);
+    display:flex;flex-direction:column;overflow:hidden}
+  .ui-hidden .panel{display:none}
+  .panel > summary{list-style:none;cursor:pointer;user-select:none;-webkit-user-select:none;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    min-height:40px;padding:0 12px;font-size:12px;font-weight:600;letter-spacing:.3px}
+  .panel > summary::-webkit-details-marker{display:none}
+  .panel > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
+  .panel .chev{width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);
+    transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s;flex:none}
+  .panel[open] .chev{transform:rotate(-135deg) translate(-2px,-2px)}
+  .panel .body{padding:0 12px 12px;overflow:auto;-webkit-overflow-scrolling:touch;min-height:0}
+
+  #hud{top:calc(var(--gap) + env(safe-area-inset-top,0px));
+       left:calc(var(--gap) + env(safe-area-inset-left,0px));width:min(250px, 62vw)}
+  #hud .rev{color:var(--dim);font-size:11px;margin-bottom:6px}
+  #legend{border-top:1px solid var(--line);padding-top:6px}
+  #legend .row{display:flex;align-items:center;gap:8px}
+  #legend .sw{width:11px;height:11px;border-radius:2px;flex:none}
+  #legend .lvl{color:var(--dim);margin-top:6px;font-size:11px}
+
+  #tools{top:calc(var(--gap) + env(safe-area-inset-top,0px));
+         right:calc(var(--gap) + env(safe-area-inset-right,0px));width:min(230px, 58vw)}
+  #tools .body{display:flex;flex-direction:column;gap:6px}
+  #tools .cap{color:var(--dim);font-size:10px;letter-spacing:.4px;margin:4px 2px 0}
+  #tools .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #tools .views{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  #tools .levels{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #tools .levels button{display:flex;flex-direction:column;align-items:flex-start;gap:0;line-height:1.25}
+  #tools .levels small{color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  #tools .lvlbar{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #tools #lvlSolo[aria-pressed="true"]{border-color:var(--accent);color:var(--fg);opacity:1}
+  #tools #lvlSolo[aria-pressed="false"]{color:var(--fg);opacity:1}
+  #tools button{font:inherit;font-size:11px;color:var(--fg);cursor:pointer;min-height:34px;
+    background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:6px 8px;text-align:left}
+  #tools .views button{text-align:center}
+  #tools button[aria-pressed="false"]{color:var(--dim);opacity:.5}
+  #tools button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  #ctrl{bottom:calc(var(--gap) + env(safe-area-inset-bottom,0px));
+        left:calc(var(--gap) + env(safe-area-inset-left,0px));width:min(330px, 72vw);color:var(--dim)}
+  #ctrl b{color:var(--fg);font-weight:600}
+  #ctrl .k{color:var(--fg);background:#1c1f26;border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+  .touch-only{display:none}
+  @media (pointer:coarse){ .touch-only{display:block} .mouse-only{display:none} }
+
+  /* UI aus: ein tippbarer Knopf bringt alles zurueck (am Handy gibt es keine Taste U) */
+  #uiBack{position:fixed;right:calc(var(--gap) + env(safe-area-inset-right,0px));
+    bottom:calc(var(--gap) + env(safe-area-inset-bottom,0px));display:none;
+    font:inherit;font-size:12px;color:var(--fg);background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;min-height:40px;padding:0 16px;cursor:pointer;opacity:.75}
+  .ui-hidden #uiBack{display:block}
+
+  .short{display:none}
+  @media (max-width:640px){
+    :root{--gap:10px}
+    .long{display:none} .short{display:inline}
+    /* zu = kleiner Chip, auf = volle Breite und obenauf */
+    .panel{width:auto}
+    #hud, #tools, #ctrl{width:auto}
+    .panel > summary{min-height:44px;font-size:13px}
+    #hud[open], #tools[open], #ctrl[open]{width:calc(100vw - 2*var(--gap) - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));z-index:5}
+    #tools[open] .grid, #tools[open] .levels{grid-template-columns:repeat(3,1fr)}
+    #tools button{min-height:40px;font-size:12px}
+  }
+  @media (prefers-reduced-motion:reduce){ .panel .chev{transition:none} }
+</style>
+
+<div id="app"></div>
+
+<details id="hud" class="panel" data-key="hud" open>
+  <summary><span class="long">Haus &mdash; Arbeitsmodell</span><span class="short">Legende</span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="body">
+    <div class="rev" id="rev">Rev __REV__ &middot; __DATE__ &middot; Meter</div>
+    <div id="legend"></div>
+  </div>
+</details>
+
+<details id="tools" class="panel" data-key="tools" open>
+  <summary><span class="long">Bauteile &amp; Ansicht</span><span class="short">Bauteile</span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="body">
+    <div class="cap">STOCKWERKE</div>
+    <div class="levels" id="levels"></div>
+    <div class="lvlbar">
+      <button id="lvlAll" type="button">Alle zeigen</button>
+      <button id="lvlSolo" type="button" aria-pressed="false" title="An: Antippen zeigt nur dieses Stockwerk">Einzeln</button>
+    </div>
+    <div class="cap">BAUTEILE</div>
+    <div class="grid">
+      <button data-group="Roof"     aria-pressed="true">Dach</button>
+      <button data-group="Shell"    aria-pressed="true">H&uuml;lle</button>
+      <button data-group="Slabs"    aria-pressed="true">Decken</button>
+      <button data-group="Stairs"   aria-pressed="true">Treppen</button>
+      <button data-group="Interior" aria-pressed="true">Innenw&auml;nde</button>
+      <button data-group="Features" aria-pressed="true">Ger&auml;te</button>
+      <button data-group="Beams"    aria-pressed="true">Balken</button>
+      <button data-group="Site"     aria-pressed="true">Trottoir</button>
+      <button data-group="RoomPads" aria-pressed="true">R&auml;ume</button>
+    </div>
+    <div class="cap">ANSICHT</div>
+    <div class="views">
+      <button data-view="front">Front</button>
+      <button data-view="back">Hinten</button>
+      <button data-view="left">Links</button>
+      <button data-view="right">Rechts</button>
+      <button data-view="top">Oben</button>
+      <button data-view="iso">ISO</button>
+    </div>
+    <button id="uiBtn">UI ausblenden (Screenshot)</button>
+  </div>
+</details>
+
+<details id="ctrl" class="panel" data-key="help" open>
+  <summary><span>Steuerung</span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="body">
+    <div class="mouse-only">
+      <b>Ziehen</b> drehen &middot; <b>Scroll</b> zoom &middot; <b>Rechts</b> schieben<br>
+      <span class="k">1</span>&ndash;<span class="k">6</span> Ansichten &middot;
+      <span class="k">R</span> Dach &middot; <span class="k">G</span> H&uuml;lle &middot;
+      <span class="k">U</span> UI aus &middot; <span class="k">F</span> einpassen
+    </div>
+    <div class="touch-only">
+      <b>1 Finger</b> drehen &middot; <b>2 Finger</b> zoomen &amp; schieben<br>
+      Fenster antippen = auf/zu
+    </div>
+  </div>
+</details>
+
+<button id="uiBack" type="button">UI einblenden</button>
+<div id="loading">lade Modell&hellip;</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+
+const LEGEND = /*__LEGEND__*/ [];
+const LEVELS = /*__LEVELS__*/ [];   // von oben nach unten: {name, role}
+const GLB_B64 = "__GLB_B64__";
+
+(function(){
+  const leg = document.getElementById('legend');
+  LEGEND.forEach(lv => {
+    const h = document.createElement('div'); h.className='lvl';
+    h.textContent = lv.name + (lv.role ? ' (' + lv.role + ')' : '');
+    leg.appendChild(h);
+    lv.rooms.forEach(r => {
+      const col = 'rgb(' + r.color.map(v=>Math.round(v*255)).join(',') + ')';
+      const row = document.createElement('div'); row.className='row';
+      row.innerHTML = '<span class="sw" style="background:'+col+'"></span>'+r.label;
+      leg.appendChild(row);
+    });
+  });
+})();
+
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0f1116');
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 500);
+
+scene.add(new THREE.HemisphereLight('#dfe7f2','#20242c',1.15));
+const sun = new THREE.DirectionalLight('#fff4e0',1.5); sun.position.set(6,14,4); scene.add(sun);
+const fill = new THREE.DirectionalLight('#cfe0ff',0.5); fill.position.set(-8,5,-6); scene.add(fill);
+const grid = new THREE.GridHelper(60,60,0x2a2e36,0x1b1e24); grid.position.y=-0.01; scene.add(grid);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI*0.49;
+
+const groups = {}; const levelNodes = {}; const modelBox = new THREE.Box3(); let ready=false;
+
+function b64ToBuf(b64){
+  const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+new GLTFLoader().parse(b64ToBuf(GLB_B64), '', (gltf) => {
+  const root = gltf.scene;
+  root.traverse(o => {
+    if (o.isMesh && o.material){
+      (Array.isArray(o.material)?o.material:[o.material]).forEach(m => {
+        if (m.transparent || (m.opacity!==undefined && m.opacity<1)){ m.depthWrite=false; m.transparent=true; }
+        m.side = THREE.DoubleSide;
+      });
+    }
+    // GLTFLoader entfernt "/" aus Namen; der Originalname ("EG/Shell") steht in userData.name
+    const full = o.userData && o.userData.name ? o.userData.name : o.name;
+    if (full && full.includes('/')) (groups[full.split('/')[1]] ||= []).push(o);
+    else if (full && o.parent === root) levelNodes[full] = o;
+  });
+  scene.add(root); modelBox.setFromObject(root); ready=true; setView('iso');
+  document.getElementById('loading').hidden = true;
+}, (err) => {
+  document.getElementById('loading').textContent = 'Fehler beim Laden des Modells.';
+  console.error(err);
+});
+
+// ---- Ansichten / Kamera-Presets ----
+function setView(name){
+  if (!ready) return;
+  const c = modelBox.getCenter(new THREE.Vector3());
+  const s = modelBox.getSize(new THREE.Vector3());
+  const r = Math.max(s.x,s.y,s.z);
+  controls.target.copy(c);
+  const P = {
+    front: [c.x,           c.y+0.15*r, c.z-2.0*r],
+    back:  [c.x,           c.y+0.15*r, c.z+2.0*r],
+    left:  [c.x-2.0*r,     c.y+0.15*r, c.z],
+    right: [c.x+2.0*r,     c.y+0.15*r, c.z],
+    top:   [c.x+0.001,     c.y+2.4*r,  c.z],
+    iso:   [c.x+1.1*r,     c.y+1.25*r, c.z+1.35*r],
+  }[name] || [c.x+1.1*r, c.y+1.25*r, c.z+1.35*r];
+  // Hochformat (Handy): weiter weg, damit das Haus auch in der Breite reinpasst
+  const k = Math.max(1, 0.86 / Math.max(camera.aspect, 0.3));
+  camera.position.set(c.x + (P[0]-c.x)*k, c.y + (P[1]-c.y)*k, c.z + (P[2]-c.z)*k);
+  currentView = name; userMoved = false;
+  camera.near=r/100; camera.far=r*20; camera.updateProjectionMatrix();
+}
+let currentView = 'iso', userMoved = false;
+controls.addEventListener('start', () => { userMoved = true; });
+
+function setGroup(name,on){
+  (groups[name] || []).forEach(o => { o.visible = on; });
+  const btn = document.querySelector('#tools button[data-group="'+name+'"]');
+  if (btn) btn.setAttribute('aria-pressed', String(on));
+}
+function toggleUI(){ document.body.classList.toggle('ui-hidden'); }
+
+// ---- Stockwerke ein-/ausblenden ----
+const lvlWrap = document.getElementById('levels');
+const soloBtn = document.getElementById('lvlSolo');
+LEVELS.forEach(l => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.dataset.level = l.name; b.setAttribute('aria-pressed', 'true');
+  b.title = l.role ? l.name + ' - ' + l.role : l.name;
+  b.innerHTML = '<span>' + l.name + '</span>' + (l.role ? '<small>' + l.role + '</small>' : '');
+  b.addEventListener('click', () => {
+    if (soloBtn.getAttribute('aria-pressed') === 'true') {
+      LEVELS.forEach(o => setLevel(o.name, o.name === l.name));
+    } else {
+      setLevel(l.name, b.getAttribute('aria-pressed') !== 'true');
+    }
+  });
+  lvlWrap.appendChild(b);
+});
+function setLevel(name, on){
+  if (levelNodes[name]) levelNodes[name].visible = on;
+  const b = lvlWrap.querySelector('button[data-level="' + name + '"]');
+  if (b) b.setAttribute('aria-pressed', String(on));
+}
+document.getElementById('lvlAll').addEventListener('click', () => LEVELS.forEach(l => setLevel(l.name, true)));
+soloBtn.addEventListener('click', () => {
+  soloBtn.setAttribute('aria-pressed', String(soloBtn.getAttribute('aria-pressed') !== 'true'));
+});
+
+document.querySelectorAll('#tools .grid button[data-group]').forEach(b => {
+  b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-pressed')!=='true'));
+});
+document.querySelectorAll('#tools button[data-view]').forEach(b => {
+  b.addEventListener('click', () => setView(b.dataset.view));
+});
+document.getElementById('uiBtn').addEventListener('click', toggleUI);
+document.getElementById('uiBack').addEventListener('click', toggleUI);
+
+// ---- Aufklappbare Fenster ----
+// Handy: alle zu beim Start, immer nur eins offen. Desktop: offen. Gemerkt pro Geraeteklasse.
+const mobileMQ = matchMedia('(max-width: 640px)');
+const panels = [...document.querySelectorAll('details.panel')];
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
+};
+function storeKey(p){ return 'haus.panel.' + (mobileMQ.matches ? 'm.' : 'd.') + p.dataset.key; }
+function applyPanelDefaults(){
+  panels.forEach(p => {
+    const saved = store.get(storeKey(p));
+    p.open = saved === null ? !mobileMQ.matches : saved === '1';
+  });
+  if (mobileMQ.matches){ let seen=false; panels.forEach(p => { if (p.open){ if (seen) p.open=false; seen=true; } }); }
+}
+applyPanelDefaults();
+panels.forEach(p => p.addEventListener('toggle', () => {
+  store.set(storeKey(p), p.open ? '1' : '0');
+  if (p.open && mobileMQ.matches) panels.forEach(o => { if (o !== p && o.open) o.open = false; });
+}));
+mobileMQ.addEventListener?.('change', applyPanelDefaults);
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  const views = {'1':'front','2':'back','3':'left','4':'right','5':'top','6':'iso'};
+  if (views[k]) setView(views[k]);
+  if (k==='r') setGroup('Roof', !(groups['Roof']?.[0]?.visible));
+  if (k==='g') setGroup('Shell', !(groups['Shell']?.[0]?.visible));
+  if (k==='u') toggleUI();
+  if (k==='f') setView('iso');
+  if (k==='t') setView('top');
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (!userMoved) setView(currentView);   // Drehen Hoch/Quer: neu einpassen, solange nicht selbst bewegt
+});
+(function tick(){ requestAnimationFrame(tick); controls.update(); renderer.render(scene,camera); })();
+</script>

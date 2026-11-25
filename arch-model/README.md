@@ -89,6 +89,13 @@ HTML-Seite (GLB als data-URI eingebettet). Diese Variante hat zusätzlich feste
 **Ansichten** (`1`–`6`: Front / Hinten / Links / Rechts / Oben / ISO) und einen
 **`U` = UI aus**-Modus für saubere Markup-Screenshots.
 
+Jedes **Stockwerk** (Dach, OG3 … UG, Umgebung) lässt sich einzeln ein- und
+ausblenden. Mit **„Einzeln“** zeigt ein Tipp nur dieses Stockwerk, **„Alle zeigen“**
+holt alles zurück. Die Fenster sind aufklappbar; am Handy starten sie zugeklappt.
+
+Im GLB ist das Modell als Baum **Stockwerk → Bauteil** aufgebaut (z. B. `EG/Shell`),
+in Blender erscheinen die Etagen also als eigene Gruppen im Outliner.
+
 ---
 
 ## Konventionen

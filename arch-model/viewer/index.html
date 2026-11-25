@@ -133,7 +133,8 @@ new GLTFLoader().load('../house.glb', (gltf) => {
         m.side = THREE.DoubleSide;
       });
     }
-    if (o.name) groups[o.name] = o;
+    const full = o.userData && o.userData.name ? o.userData.name : o.name;
+    if (full && full.includes('/')) (groups[full.split('/')[1]] ||= []).push(o);
   });
 
   scene.add(root);
@@ -167,7 +168,7 @@ function topView() {
 
 // --- Gruppen-Toggles --------------------------------------------------------
 function setGroup(name, on) {
-  if (groups[name]) groups[name].visible = on;
+  (groups[name] || []).forEach(o => { o.visible = on; });
   const btn = document.querySelector(`#toggles button[data-group="${name}"]`);
   if (btn) btn.setAttribute('aria-pressed', String(on));
 }
@@ -180,8 +181,8 @@ document.querySelectorAll('#toggles button').forEach((b) => {
 
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
-  if (k === 'r') setGroup('Roof',  !groups['Roof']?.visible);
-  if (k === 'g') setGroup('Shell', !groups['Shell']?.visible);
+  if (k === 'r') setGroup('Roof',  !(groups['Roof']?.[0]?.visible));
+  if (k === 'g') setGroup('Shell', !(groups['Shell']?.[0]?.visible));
   if (k === 'f') frame(true);
   if (k === 't') topView();
 });

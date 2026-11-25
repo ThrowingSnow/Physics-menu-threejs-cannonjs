@@ -44,12 +44,14 @@ class MeshBuilder:
     def __init__(self):
         self.prims = defaultdict(lambda: {"pos": [], "nrm": []})
         self.materials = {}
+        self.level = None      # aktuelles Stockwerk -> Gruppen heissen "EG/Shell" usw.
 
     def tri(self, group, matkey, mat, p0, p1, p2):
         self.materials.setdefault(matkey, mat)
         a = np.array(p1) - np.array(p0); b = np.array(p2) - np.array(p0)
         n = np.cross(a, b); ln = np.linalg.norm(n)
         n = (n / ln) if ln > 1e-9 else np.array([0.0, 1.0, 0.0])
+        if self.level: group = self.level + "/" + group
         d = self.prims[(group, matkey)]
         for p in (p0, p1, p2):
             d["pos"].extend([float(p[0]), float(p[1]), float(p[2])])
@@ -217,6 +219,7 @@ def build(spec):
 
     # ---- Waende, Innenwaende, Raeume, Features, Treppen pro Geschoss ----
     for i, lv in enumerate(levels):
+        mb.level = lv["name"]
         ox, oz, fw, fd = offset(lv)
         y0 = base[i]; h = lv["floor_to_floor"]; plan = lv.get("plan", {})
 
@@ -288,6 +291,7 @@ def build(spec):
 
     # ---- Boden-/Deckenplatten (eine je Geschoss + oberste Decke) ----
     for sidx in range(n+1):
+        mb.level = levels[sidx]["name"] if sidx < n else "Dach"   # Boden gehoert zum Stockwerk, oberste Decke zum Dach
         lv = levels[sidx] if sidx < n else levels[n-1]
         ox, oz, fw, fd = offset(lv)
         y = base[sidx]
@@ -301,6 +305,7 @@ def build(spec):
         slab(mb,"Slabs","slab",MATS["slab"], ox, ox+fw, oz, oz+fd, y, st, hole)
 
     # ---- Trottoir (Gehsteig rund ums Haus auf Strassenniveau) ----
+    mb.level = "Umgebung"
     if trott:
         tw = trott.get("width", 1.5)
         li = next((k for k, l in enumerate(levels) if l["name"] == trott.get("level", "EG")), min(1, n-1))
@@ -309,6 +314,7 @@ def build(spec):
              hole=(tox, tox+tfw, toz, toz+tfd))
 
     # ---- Dach ----
+    mb.level = "Dach"
     top = levels[n-1]; tox, toz, tfw, tfd = offset(top)
     gable_roof(mb, tox, tox+tfw, toz, toz+tfd, roof_base, b["roof"]["height"], b["roof"]["overhang"])
 
@@ -344,6 +350,7 @@ def write_glb(mb, out_path):
     groups = defaultdict(list)
     for (group, matkey), d in mb.prims.items(): groups[group].append((matkey, d))
     meshes, nodes, scene_nodes = [], [], []
+    level_node = {}                     # "EG" -> Index des Stockwerk-Knotens
     for group, prim_list in groups.items():
         prims = []
         for matkey, d in prim_list:
@@ -356,7 +363,14 @@ def write_glb(mb, out_path):
             accessors.append(Accessor(bufferView=bv_n, componentType=FLOAT, count=nrm.shape[0], type=VEC3))
             prims.append(Primitive(attributes=Attributes(POSITION=a_p, NORMAL=a_n), material=mat_index[matkey]))
         meshes.append(Mesh(primitives=prims, name=group))
-        nodes.append(Node(mesh=len(meshes)-1, name=group)); scene_nodes.append(len(nodes)-1)
+        nodes.append(Node(mesh=len(meshes)-1, name=group)); mesh_node = len(nodes)-1
+        lvl = group.split("/")[0] if "/" in group else None
+        if lvl is None:
+            scene_nodes.append(mesh_node); continue
+        if lvl not in level_node:
+            nodes.append(Node(name=lvl, children=[])); level_node[lvl] = len(nodes)-1
+            scene_nodes.append(level_node[lvl])
+        nodes[level_node[lvl]].children.append(mesh_node)
 
     g = GLTF2(scene=0, scenes=[Scene(nodes=scene_nodes)], nodes=nodes, meshes=meshes,
               materials=materials, accessors=accessors, bufferViews=bufferViews,
@@ -386,7 +400,7 @@ def preview(mb, out_png, dims):
     fig = plt.figure(figsize=(9,9), facecolor="#101216")
     ax = fig.add_subplot(111, projection="3d"); ax.set_facecolor("#101216")
     order = {"Slabs":0,"Shell":1,"Roof":2,"Stairs":3,"Interior":4,"Features":5,"RoomPads":6}
-    for (group, matkey), d in sorted(mb.prims.items(), key=lambda kv: order.get(kv[0][0], 9)):
+    for (group, matkey), d in sorted(mb.prims.items(), key=lambda kv: order.get(kv[0][0].split("/")[-1], 9)):
         pos = np.asarray(d["pos"], dtype=np.float32).reshape(-1,3,3)
         tris = pos[:, :, [0,2,1]]                       # Y-up -> matplotlib
         r,g,bl,a = mb.materials[matkey]["rgba"]
@@ -488,6 +502,11 @@ def plan_png(spec, level_name, out_png, rot180=False):
     print("  Grundriss %-4s ->      %s" % (lv["name"], out_png))
 
 
+def _bare(role):
+    """'(offen)' -> 'offen', 'Office (Raedli)' bleibt unveraendert."""
+    return role[1:-1] if role.startswith("(") and role.endswith(")") else role
+
+
 def build_artifact(spec, glb_path, template_path, out_path):
     """Self-contained Viewer-HTML (GLB eingebettet) aus dem Template erzeugen."""
     import base64
@@ -502,6 +521,10 @@ def build_artifact(spec, glb_path, template_path, out_path):
     out = (tpl.replace("__REV__", str(spec["meta"]["revision"]))
               .replace("__DATE__", spec["meta"]["date"])
               .replace("/*__LEGEND__*/ []", json.dumps(leg, ensure_ascii=False))
+              .replace("/*__LEVELS__*/ []", json.dumps(
+                  [{"name": "Dach", "role": ""}] +
+                  [{"name": lv["name"], "role": _bare(lv.get("role", ""))} for lv in reversed(spec["building"]["levels"])] +
+                  [{"name": "Umgebung", "role": "Trottoir"}], ensure_ascii=False))
               .replace("__GLB_B64__", b64))
     open(out_path, "w", encoding="utf-8").write(out)
     print("  Artifact-HTML ->        %s (%d kB)" % (out_path, len(out)//1024))

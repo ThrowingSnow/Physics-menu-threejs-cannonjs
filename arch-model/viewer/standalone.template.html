@@ -44,6 +44,12 @@
   #tools .cap{color:var(--dim);font-size:10px;letter-spacing:.4px;margin:4px 2px 0}
   #tools .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
   #tools .views{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  #tools .levels{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #tools .levels button{display:flex;flex-direction:column;align-items:flex-start;gap:0;line-height:1.25}
+  #tools .levels small{color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  #tools .lvlbar{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #tools #lvlSolo[aria-pressed="true"]{border-color:var(--accent);color:var(--fg);opacity:1}
+  #tools #lvlSolo[aria-pressed="false"]{color:var(--fg);opacity:1}
   #tools button{font:inherit;font-size:11px;color:var(--fg);cursor:pointer;min-height:34px;
     background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:6px 8px;text-align:left}
   #tools .views button{text-align:center}
@@ -73,7 +79,7 @@
     #hud, #tools, #ctrl{width:auto}
     .panel > summary{min-height:44px;font-size:13px}
     #hud[open], #tools[open], #ctrl[open]{width:calc(100vw - 2*var(--gap) - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));z-index:5}
-    #tools[open] .grid{grid-template-columns:repeat(3,1fr)}
+    #tools[open] .grid, #tools[open] .levels{grid-template-columns:repeat(3,1fr)}
     #tools button{min-height:40px;font-size:12px}
   }
   @media (prefers-reduced-motion:reduce){ .panel .chev{transition:none} }
@@ -92,6 +98,12 @@
 <details id="tools" class="panel" data-key="tools" open>
   <summary><span class="long">Bauteile &amp; Ansicht</span><span class="short">Bauteile</span><span class="chev" aria-hidden="true"></span></summary>
   <div class="body">
+    <div class="cap">STOCKWERKE</div>
+    <div class="levels" id="levels"></div>
+    <div class="lvlbar">
+      <button id="lvlAll" type="button">Alle zeigen</button>
+      <button id="lvlSolo" type="button" aria-pressed="false" title="An: Antippen zeigt nur dieses Stockwerk">Einzeln</button>
+    </div>
     <div class="cap">BAUTEILE</div>
     <div class="grid">
       <button data-group="Roof"     aria-pressed="true">Dach</button>
@@ -149,6 +161,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
 
 const LEGEND = /*__LEGEND__*/ [];
+const LEVELS = /*__LEVELS__*/ [];   // von oben nach unten: {name, role}
 const GLB_B64 = "__GLB_B64__";
 
 (function(){
@@ -187,7 +200,7 @@ const grid = new THREE.GridHelper(60,60,0x2a2e36,0x1b1e24); grid.position.y=-0.0
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI*0.49;
 
-const groups = {}; const modelBox = new THREE.Box3(); let ready=false;
+const groups = {}; const levelNodes = {}; const modelBox = new THREE.Box3(); let ready=false;
 
 function b64ToBuf(b64){
   const bin = atob(b64); const bytes = new Uint8Array(bin.length);
@@ -203,7 +216,10 @@ new GLTFLoader().parse(b64ToBuf(GLB_B64), '', (gltf) => {
         m.side = THREE.DoubleSide;
       });
     }
-    if (o.name) groups[o.name] = o;
+    // GLTFLoader entfernt "/" aus Namen; der Originalname ("EG/Shell") steht in userData.name
+    const full = o.userData && o.userData.name ? o.userData.name : o.name;
+    if (full && full.includes('/')) (groups[full.split('/')[1]] ||= []).push(o);
+    else if (full && o.parent === root) levelNodes[full] = o;
   });
   scene.add(root); modelBox.setFromObject(root); ready=true; setView('iso');
   document.getElementById('loading').hidden = true;
@@ -237,13 +253,40 @@ let currentView = 'iso', userMoved = false;
 controls.addEventListener('start', () => { userMoved = true; });
 
 function setGroup(name,on){
-  if (groups[name]) groups[name].visible = on;
+  (groups[name] || []).forEach(o => { o.visible = on; });
   const btn = document.querySelector('#tools button[data-group="'+name+'"]');
   if (btn) btn.setAttribute('aria-pressed', String(on));
 }
 function toggleUI(){ document.body.classList.toggle('ui-hidden'); }
 
-document.querySelectorAll('#tools button[data-group]').forEach(b => {
+// ---- Stockwerke ein-/ausblenden ----
+const lvlWrap = document.getElementById('levels');
+const soloBtn = document.getElementById('lvlSolo');
+LEVELS.forEach(l => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.dataset.level = l.name; b.setAttribute('aria-pressed', 'true');
+  b.title = l.role ? l.name + ' - ' + l.role : l.name;
+  b.innerHTML = '<span>' + l.name + '</span>' + (l.role ? '<small>' + l.role + '</small>' : '');
+  b.addEventListener('click', () => {
+    if (soloBtn.getAttribute('aria-pressed') === 'true') {
+      LEVELS.forEach(o => setLevel(o.name, o.name === l.name));
+    } else {
+      setLevel(l.name, b.getAttribute('aria-pressed') !== 'true');
+    }
+  });
+  lvlWrap.appendChild(b);
+});
+function setLevel(name, on){
+  if (levelNodes[name]) levelNodes[name].visible = on;
+  const b = lvlWrap.querySelector('button[data-level="' + name + '"]');
+  if (b) b.setAttribute('aria-pressed', String(on));
+}
+document.getElementById('lvlAll').addEventListener('click', () => LEVELS.forEach(l => setLevel(l.name, true)));
+soloBtn.addEventListener('click', () => {
+  soloBtn.setAttribute('aria-pressed', String(soloBtn.getAttribute('aria-pressed') !== 'true'));
+});
+
+document.querySelectorAll('#tools .grid button[data-group]').forEach(b => {
   b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-pressed')!=='true'));
 });
 document.querySelectorAll('#tools button[data-view]').forEach(b => {
@@ -279,8 +322,8 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   const views = {'1':'front','2':'back','3':'left','4':'right','5':'top','6':'iso'};
   if (views[k]) setView(views[k]);
-  if (k==='r') setGroup('Roof', !groups['Roof']?.visible);
-  if (k==='g') setGroup('Shell', !groups['Shell']?.visible);
+  if (k==='r') setGroup('Roof', !(groups['Roof']?.[0]?.visible));
+  if (k==='g') setGroup('Shell', !(groups['Shell']?.[0]?.visible));
   if (k==='u') toggleUI();
   if (k==='f') setView('iso');
   if (k==='t') setView('top');

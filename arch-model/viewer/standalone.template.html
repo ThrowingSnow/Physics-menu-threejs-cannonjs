@@ -1,97 +1,139 @@
 <title>Haus Arbeitsmodell</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-  /* Layout: Vollbild-3D-Canvas mit schwebenden HUD-Panels (bewusst dunkel, Single-Theme).
-     Die Platzhalter-Tokens unten ersetzt build_house.py --artifact beim Generieren. */
+  /* Layout: Vollbild-3D-Canvas mit aufklappbaren HUD-Fenstern (bewusst dunkel, Single-Theme).
+     Handy: Fenster starten zugeklappt, immer nur eins offen. Platzhalter-Tokens ersetzt build_house.py --artifact. */
   :root{
     --bg:#0f1116; --fg:#e8eaed; --dim:#8b9099; --line:#272b33;
-    --panel:rgba(16,18,22,.80); --accent:#6ea8fe;
+    --panel:rgba(16,18,22,.86); --btn:#1a1d24; --accent:#6ea8fe;
     color-scheme: dark;
     --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --gap:12px;
   }
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--mono);overflow:hidden}
   #app{position:fixed;inset:0}
-  canvas{display:block}
+  canvas{display:block;touch-action:none}
 
-  .panel{position:fixed;background:var(--panel);border:1px solid var(--line);
-    border-radius:10px;backdrop-filter:blur(8px);padding:12px 14px;font-size:12px;line-height:1.5}
+  .panel{position:fixed;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-size:12px;line-height:1.5;
+    max-height:calc(100% - 2*var(--gap) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 60px);
+    display:flex;flex-direction:column;overflow:hidden}
   .ui-hidden .panel{display:none}
+  .panel > summary{list-style:none;cursor:pointer;user-select:none;-webkit-user-select:none;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    min-height:40px;padding:0 12px;font-size:12px;font-weight:600;letter-spacing:.3px}
+  .panel > summary::-webkit-details-marker{display:none}
+  .panel > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
+  .panel .chev{width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);
+    transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s;flex:none}
+  .panel[open] .chev{transform:rotate(-135deg) translate(-2px,-2px)}
+  .panel .body{padding:0 12px 12px;overflow:auto;-webkit-overflow-scrolling:touch;min-height:0}
 
-  #hud{top:calc(14px + env(safe-area-inset-top,0px));
-       left:calc(14px + env(safe-area-inset-left,0px));max-width:62vw}
-  #hud h1{margin:0 0 2px;font-size:13px;letter-spacing:.3px}
+  #hud{top:calc(var(--gap) + env(safe-area-inset-top,0px));
+       left:calc(var(--gap) + env(safe-area-inset-left,0px));width:min(250px, 62vw)}
   #hud .rev{color:var(--dim);font-size:11px;margin-bottom:6px}
-  #legend{margin-top:6px;border-top:1px solid var(--line);padding-top:6px}
+  #legend{border-top:1px solid var(--line);padding-top:6px}
   #legend .row{display:flex;align-items:center;gap:8px}
   #legend .sw{width:11px;height:11px;border-radius:2px;flex:none}
   #legend .lvl{color:var(--dim);margin-top:6px;font-size:11px}
 
-  #toggles{top:calc(14px + env(safe-area-inset-top,0px));
-           right:calc(14px + env(safe-area-inset-right,0px));
-           display:flex;flex-direction:column;gap:6px;padding:8px;max-width:46vw}
-  #toggles .cap{color:var(--dim);font-size:10px;letter-spacing:.4px;margin:2px 2px 0}
-  #toggles button{font:inherit;font-size:11px;color:var(--fg);cursor:pointer;
-    background:#1a1d24;border:1px solid var(--line);border-radius:7px;padding:7px 10px;text-align:left}
-  #toggles button[aria-pressed="false"]{color:var(--dim);opacity:.5}
-  #toggles .views{display:flex;flex-wrap:wrap;gap:5px}
-  #toggles .views button{padding:6px 8px;text-align:center;flex:1 0 auto}
-  #toggles button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  #tools{top:calc(var(--gap) + env(safe-area-inset-top,0px));
+         right:calc(var(--gap) + env(safe-area-inset-right,0px));width:min(230px, 58vw)}
+  #tools .body{display:flex;flex-direction:column;gap:6px}
+  #tools .cap{color:var(--dim);font-size:10px;letter-spacing:.4px;margin:4px 2px 0}
+  #tools .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  #tools .views{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  #tools button{font:inherit;font-size:11px;color:var(--fg);cursor:pointer;min-height:34px;
+    background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:6px 8px;text-align:left}
+  #tools .views button{text-align:center}
+  #tools button[aria-pressed="false"]{color:var(--dim);opacity:.5}
+  #tools button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-  #ctrl{bottom:calc(14px + env(safe-area-inset-bottom,0px));
-        left:calc(14px + env(safe-area-inset-left,0px));color:var(--dim);max-width:72vw}
+  #ctrl{bottom:calc(var(--gap) + env(safe-area-inset-bottom,0px));
+        left:calc(var(--gap) + env(safe-area-inset-left,0px));width:min(330px, 72vw);color:var(--dim)}
   #ctrl b{color:var(--fg);font-weight:600}
   #ctrl .k{color:var(--fg);background:#1c1f26;border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+  .touch-only{display:none}
+  @media (pointer:coarse){ .touch-only{display:block} .mouse-only{display:none} }
 
-  /* "UI aus": der Clean-Hinweis bleibt dezent sichtbar, damit man zurueckfindet */
-  #cleanhint{position:fixed;bottom:10px;right:12px;color:var(--dim);font-size:10px;opacity:.5;display:none}
-  .ui-hidden #cleanhint{display:block}
+  /* UI aus: ein tippbarer Knopf bringt alles zurueck (am Handy gibt es keine Taste U) */
+  #uiBack{position:fixed;right:calc(var(--gap) + env(safe-area-inset-right,0px));
+    bottom:calc(var(--gap) + env(safe-area-inset-bottom,0px));display:none;
+    font:inherit;font-size:12px;color:var(--fg);background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;min-height:40px;padding:0 16px;cursor:pointer;opacity:.75}
+  .ui-hidden #uiBack{display:block}
 
-  #loading{position:fixed;inset:0;display:grid;place-items:center;color:var(--dim);font-size:13px}
-  #loading[hidden]{display:none}
-  @media (max-width:560px){ #ctrl{display:none} #hud{max-width:52vw} }
-  @media (prefers-reduced-motion:reduce){ *{scroll-behavior:auto} }
+  .short{display:none}
+  @media (max-width:640px){
+    :root{--gap:10px}
+    .long{display:none} .short{display:inline}
+    /* zu = kleiner Chip, auf = volle Breite und obenauf */
+    .panel{width:auto}
+    #hud, #tools, #ctrl{width:auto}
+    .panel > summary{min-height:44px;font-size:13px}
+    #hud[open], #tools[open], #ctrl[open]{width:calc(100vw - 2*var(--gap) - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));z-index:5}
+    #tools[open] .grid{grid-template-columns:repeat(3,1fr)}
+    #tools button{min-height:40px;font-size:12px}
+  }
+  @media (prefers-reduced-motion:reduce){ .panel .chev{transition:none} }
 </style>
 
 <div id="app"></div>
 
-<div id="hud" class="panel">
-  <h1>Haus &mdash; Arbeitsmodell</h1>
-  <div class="rev" id="rev">Rev __REV__ &middot; __DATE__ &middot; Meter</div>
-  <div id="legend"></div>
-</div>
-
-<div id="toggles" class="panel">
-  <div class="cap">BAUTEILE</div>
-  <button data-group="Roof"     aria-pressed="true">Dach</button>
-  <button data-group="Shell"    aria-pressed="true">H&uuml;lle</button>
-  <button data-group="Slabs"    aria-pressed="true">Decken</button>
-  <button data-group="Stairs"   aria-pressed="true">Treppen</button>
-  <button data-group="Interior" aria-pressed="true">Innenw&auml;nde</button>
-  <button data-group="Features" aria-pressed="true">St&uuml;tzen/Ger&auml;te</button>
-  <button data-group="Beams"    aria-pressed="true">Balkendecke</button>
-  <button data-group="Site"     aria-pressed="true">Trottoir</button>
-  <button data-group="RoomPads" aria-pressed="true">R&auml;ume</button>
-  <div class="cap">ANSICHT</div>
-  <div class="views">
-    <button data-view="front">Front</button>
-    <button data-view="back">Hinten</button>
-    <button data-view="left">Links</button>
-    <button data-view="right">Rechts</button>
-    <button data-view="top">Oben</button>
-    <button data-view="iso">ISO</button>
+<details id="hud" class="panel" data-key="hud" open>
+  <summary><span class="long">Haus &mdash; Arbeitsmodell</span><span class="short">Legende</span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="body">
+    <div class="rev" id="rev">Rev __REV__ &middot; __DATE__ &middot; Meter</div>
+    <div id="legend"></div>
   </div>
-  <button id="uiBtn">UI ausblenden (Screenshot)</button>
-</div>
+</details>
 
-<div id="ctrl" class="panel">
-  <b>Ziehen</b> drehen &middot; <b>Scroll</b> zoom &middot; <b>Rechts</b> schieben<br>
-  <span class="k">1</span>&ndash;<span class="k">6</span> Ansichten &middot;
-  <span class="k">R</span> Dach &middot; <span class="k">G</span> H&uuml;lle &middot;
-  <span class="k">U</span> UI aus &middot; <span class="k">F</span> einpassen
-</div>
+<details id="tools" class="panel" data-key="tools" open>
+  <summary><span class="long">Bauteile &amp; Ansicht</span><span class="short">Bauteile</span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="body">
+    <div class="cap">BAUTEILE</div>
+    <div class="grid">
+      <button data-group="Roof"     aria-pressed="true">Dach</button>
+      <button data-group="Shell"    aria-pressed="true">H&uuml;lle</button>
+      <button data-group="Slabs"    aria-pressed="true">Decken</button>
+      <button data-group="Stairs"   aria-pressed="true">Treppen</button>
+      <button data-group="Interior" aria-pressed="true">Innenw&auml;nde</button>
+      <button data-group="Features" aria-pressed="true">Ger&auml;te</button>
+      <button data-group="Beams"    aria-pressed="true">Balken</button>
+      <button data-group="Site"     aria-pressed="true">Trottoir</button>
+      <button data-group="RoomPads" aria-pressed="true">R&auml;ume</button>
+    </div>
+    <div class="cap">ANSICHT</div>
+    <div class="views">
+      <button data-view="front">Front</button>
+      <button data-view="back">Hinten</button>
+      <button data-view="left">Links</button>
+      <button data-view="right">Rechts</button>
+      <button data-view="top">Oben</button>
+      <button data-view="iso">ISO</button>
+    </div>
+    <button id="uiBtn">UI ausblenden (Screenshot)</button>
+  </div>
+</details>
 
-<div id="cleanhint">U = UI zur&uuml;ck</div>
+<details id="ctrl" class="panel" data-key="help" open>
+  <summary><span>Steuerung</span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="body">
+    <div class="mouse-only">
+      <b>Ziehen</b> drehen &middot; <b>Scroll</b> zoom &middot; <b>Rechts</b> schieben<br>
+      <span class="k">1</span>&ndash;<span class="k">6</span> Ansichten &middot;
+      <span class="k">R</span> Dach &middot; <span class="k">G</span> H&uuml;lle &middot;
+      <span class="k">U</span> UI aus &middot; <span class="k">F</span> einpassen
+    </div>
+    <div class="touch-only">
+      <b>1 Finger</b> drehen &middot; <b>2 Finger</b> zoomen &amp; schieben<br>
+      Fenster antippen = auf/zu
+    </div>
+  </div>
+</details>
+
+<button id="uiBack" type="button">UI einblenden</button>
 <div id="loading">lade Modell&hellip;</div>
 
 <script type="importmap">
@@ -185,23 +227,53 @@ function setView(name){
     top:   [c.x+0.001,     c.y+2.4*r,  c.z],
     iso:   [c.x+1.1*r,     c.y+1.25*r, c.z+1.35*r],
   }[name] || [c.x+1.1*r, c.y+1.25*r, c.z+1.35*r];
-  camera.position.set(P[0],P[1],P[2]);
+  // Hochformat (Handy): weiter weg, damit das Haus auch in der Breite reinpasst
+  const k = Math.max(1, 0.86 / Math.max(camera.aspect, 0.3));
+  camera.position.set(c.x + (P[0]-c.x)*k, c.y + (P[1]-c.y)*k, c.z + (P[2]-c.z)*k);
+  currentView = name; userMoved = false;
   camera.near=r/100; camera.far=r*20; camera.updateProjectionMatrix();
 }
+let currentView = 'iso', userMoved = false;
+controls.addEventListener('start', () => { userMoved = true; });
+
 function setGroup(name,on){
   if (groups[name]) groups[name].visible = on;
-  const btn = document.querySelector('#toggles button[data-group="'+name+'"]');
+  const btn = document.querySelector('#tools button[data-group="'+name+'"]');
   if (btn) btn.setAttribute('aria-pressed', String(on));
 }
 function toggleUI(){ document.body.classList.toggle('ui-hidden'); }
 
-document.querySelectorAll('#toggles button[data-group]').forEach(b => {
+document.querySelectorAll('#tools button[data-group]').forEach(b => {
   b.addEventListener('click', () => setGroup(b.dataset.group, b.getAttribute('aria-pressed')!=='true'));
 });
-document.querySelectorAll('#toggles button[data-view]').forEach(b => {
+document.querySelectorAll('#tools button[data-view]').forEach(b => {
   b.addEventListener('click', () => setView(b.dataset.view));
 });
 document.getElementById('uiBtn').addEventListener('click', toggleUI);
+document.getElementById('uiBack').addEventListener('click', toggleUI);
+
+// ---- Aufklappbare Fenster ----
+// Handy: alle zu beim Start, immer nur eins offen. Desktop: offen. Gemerkt pro Geraeteklasse.
+const mobileMQ = matchMedia('(max-width: 640px)');
+const panels = [...document.querySelectorAll('details.panel')];
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
+};
+function storeKey(p){ return 'haus.panel.' + (mobileMQ.matches ? 'm.' : 'd.') + p.dataset.key; }
+function applyPanelDefaults(){
+  panels.forEach(p => {
+    const saved = store.get(storeKey(p));
+    p.open = saved === null ? !mobileMQ.matches : saved === '1';
+  });
+  if (mobileMQ.matches){ let seen=false; panels.forEach(p => { if (p.open){ if (seen) p.open=false; seen=true; } }); }
+}
+applyPanelDefaults();
+panels.forEach(p => p.addEventListener('toggle', () => {
+  store.set(storeKey(p), p.open ? '1' : '0');
+  if (p.open && mobileMQ.matches) panels.forEach(o => { if (o !== p && o.open) o.open = false; });
+}));
+mobileMQ.addEventListener?.('change', applyPanelDefaults);
 
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -216,6 +288,7 @@ addEventListener('keydown', e => {
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  if (!userMoved) setView(currentView);   // Drehen Hoch/Quer: neu einpassen, solange nicht selbst bewegt
 });
 (function tick(){ requestAnimationFrame(tick); controls.update(); renderer.render(scene,camera); })();
 </script>
